@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deuce Board — Family Tennis Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2220%22>🎾</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="home">
+  <div class="home-head">
+    <div class="kicker">Junior Development Tracker</div>
+    <h1>Deuce Board</h1>
+    <p>One place to run both boys' training plans — session logs, skill progress, and a strategy quiz, each scaled to where they actually are.</p>
+  </div>
+  <div class="player-cards" id="cards"></div>
+  <div class="home-foot">Progress is saved right in this browser (per player). Use the <strong>Backup</strong> button inside each dashboard to download a copy, and <strong>Restore</strong> to load it on another device.</div>
+</div>
+
+<script>
+function readStats(key, totalSessions, totalBadgesOrSkills, badgeLabel){
+  var raw = null;
+  try{ raw = localStorage.getItem(key); }catch(e){}
+  var doneSessions = 0, doneBadges = 0;
+  if (raw){
+    try{
+      var s = JSON.parse(raw);
+      var wl = s.weeklyLog || {};
+      Object.keys(wl).forEach(function(wk){
+        ["d1","d2","d3","d4"].forEach(function(d){ if (wl[wk][d]) doneSessions++; });
+      });
+      if (s.skillStatus){
+        Object.keys(s.skillStatus).forEach(function(k){ if (s.skillStatus[k]==="mastered") doneBadges++; });
+      }
+      if (s.badgeStatus){
+        Object.keys(s.badgeStatus).forEach(function(k){ if (s.badgeStatus[k]) doneBadges++; });
+      }
+    }catch(e){}
+  }
+  return {doneSessions:doneSessions, totalSessions:totalSessions, doneBadges:doneBadges, totalBadgesOrSkills:totalBadgesOrSkills, badgeLabel:badgeLabel};
+}
+
+var judah = readStats("deuceboard_judah_v1", 208, 48, "Skills Mastered");
+var joseph = readStats("deuceboard_joseph_v1", 156, 24, "Badges Earned");
+
+function cardHtml(player, name, meta, stats, href){
+  return '<a class="player-card '+player+'" href="'+href+'">'
+    + '<div class="pc-name">'+name+'</div>'
+    + '<div class="pc-meta">'+meta+'</div>'
+    + '<div class="pc-stats">'
+      + '<div class="pc-stat"><div class="v">'+stats.doneSessions+'<span style="color:var(--ink-faint);font-size:13px">/'+stats.totalSessions+'</span></div><div class="l">Sessions Logged</div></div>'
+      + '<div class="pc-stat"><div class="v">'+stats.doneBadges+'<span style="color:var(--ink-faint);font-size:13px">/'+stats.totalBadgesOrSkills+'</span></div><div class="l">'+stats.badgeLabel+'</div></div>'
+    + '</div>'
+    + '<div class="pc-enter">Open dashboard &rarr;</div>'
+    + '</a>';
+}
+
+document.getElementById("cards").innerHTML =
+  cardHtml("judah", "Judah", "Age 10 &middot; NTRP 3.0 &middot; 4x / week", judah, "judah/index.html") +
+  cardHtml("joseph", "Joseph", "Age 6 &middot; NTRP 2.0 &middot; 3x / week", joseph, "joseph/index.html");
+</script>
+</body>
+</html>
