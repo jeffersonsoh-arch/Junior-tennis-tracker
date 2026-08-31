@@ -146,6 +146,31 @@ create table public.drill_blocks (
 create index drill_blocks_ntrp_lookup on public.drill_blocks (pathway, level_min, level_max, quarter, block_order) where pathway = 'ntrp';
 create index drill_blocks_youth_lookup on public.drill_blocks (pathway, youth_stage, quarter, block_order) where pathway = 'youth';
 
+-- Skill checklist items — a stroke-by-stroke taxonomy (forehand topspin,
+-- backhand slice, serve types, volleys, footwork, warm-up, ...) tracked
+-- continuously across the season, independent of which weekly block is
+-- current. NTRP only for now; the youth pathway uses its own age-scoped
+-- badge system (see CURRICULUM.stages[].badges) instead.
+create table public.skill_items (
+  id uuid primary key default gen_random_uuid(),
+  pathway text not null check (pathway in ('youth','ntrp')),
+  level_min numeric(2,1),
+  level_max numeric(2,1),
+  youth_stage text check (youth_stage in ('red_starter','red_rally','red_game_player','orange_ready')),
+  group_label text not null,
+  category text not null,
+  title text not null,
+  sort_order int not null default 1,
+  description text not null,
+  created_at timestamptz not null default now(),
+  check (
+    (pathway = 'ntrp' and level_min is not null and level_max is not null and youth_stage is null)
+    or
+    (pathway = 'youth' and youth_stage is not null and level_min is null and level_max is null)
+  )
+);
+create index skill_items_ntrp_lookup on public.skill_items (pathway, level_min, level_max, sort_order) where pathway = 'ntrp';
+
 -- Quiz banks, same level/stage/quarter addressing as drill_blocks. Sparse
 -- by design in v1 — only levels with an authored bank get a Quiz tab;
 -- others see a "not yet written for this level" message instead of
@@ -291,4 +316,8 @@ create policy "signed-in users can read thresholds" on public.level_thresholds
 
 alter table public.quiz_banks enable row level security;
 create policy "signed-in users can read quiz banks" on public.quiz_banks
+  for select using (auth.role() = 'authenticated');
+
+alter table public.skill_items enable row level security;
+create policy "signed-in users can read skill items" on public.skill_items
   for select using (auth.role() = 'authenticated');

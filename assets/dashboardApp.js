@@ -13,8 +13,6 @@ var YOUTH_STAGES = [
   {key:"red_game_player", label:"Red Game Player"},
   {key:"orange_ready", label:"Orange Ready"}
 ];
-var CAT_KEYS = ["technical","tactical","physical","mental"];
-var CAT_LABELS = {technical:"Technical", tactical:"Tactical", physical:"Physical", mental:"Mental / Routine"};
 
 function playerIdFromUrl(){
   var m = /[?&]id=([^&]+)/.exec(window.location.search);
@@ -58,7 +56,7 @@ function levelLabel(entry){
 /* ---------------------------- App state ---------------------------- */
 var PLAYER_ID = playerIdFromUrl();
 var player = null, plan = null, levelHistory = [], members = [];
-var drillBlocks = [], quizBanks = [], thresholds = [];
+var drillBlocks = [], quizBanks = [], thresholds = [], skillItems = [];
 var CURRICULUM = null, QUIZDATA = null;
 var TOTAL_WEEKS = 0, BENCH_WEEKS = {};
 var state = null;
@@ -103,14 +101,22 @@ function quarterCompletionPct(q){
   weeks.forEach(function(w){ done += weekDoneCount(w.week); });
   return total ? Math.round((done / total) * 100) : 0;
 }
+/* Skill checklist items are matched to whichever level is current right
+   now (not resolved per-week like drill content) — the checklist is a
+   "where do things stand today" view, not a historical one. */
+function currentSkillItems(){
+  var latest = levelHistory[levelHistory.length - 1];
+  if (!latest || latest.ntrp_level == null) return [];
+  return skillItems.filter(function(s){ return latest.ntrp_level >= s.level_min && latest.ntrp_level <= s.level_max; });
+}
 function skillsMasteredCount(){
-  var n = 0;
-  CURRICULUM.blocks.forEach(function(b){ CAT_KEYS.forEach(function(c){ if (state.skillStatus[b.id + "-" + c] === "mastered") n++; }); });
+  var items = currentSkillItems(), n = 0;
+  items.forEach(function(s){ if (state.skillStatus[s.id] === "mastered") n++; });
   return n;
 }
-function catMasteredCount(cat){
+function groupMasteredCount(items, group){
   var n = 0;
-  CURRICULUM.blocks.forEach(function(b){ if (state.skillStatus[b.id + "-" + cat] === "mastered") n++; });
+  items.forEach(function(s){ if (s.group_label === group && state.skillStatus[s.id] === "mastered") n++; });
   return n;
 }
 function badgesEarnedCount(stageId){
@@ -246,7 +252,7 @@ function renderOverview(){
   }).join("");
 
   var statTiles = isNtrp
-    ? '<div class="card stat-tile"><span class="label">Skills Mastered</span><span class="value">'+skillsMasteredCount()+'<span style="font-size:14px;color:var(--ink-faint)">/'+(CURRICULUM.blocks.length*4)+'</span></span><span class="sub">across all 4 categories</span></div>'
+    ? '<div class="card stat-tile"><span class="label">Skills Mastered</span><span class="value">'+skillsMasteredCount()+'<span style="font-size:14px;color:var(--ink-faint)">/'+currentSkillItems().length+'</span></span><span class="sub">across all skill groups</span></div>'
     : '<div class="card stat-tile"><span class="label">Badges Earned</span><span class="value">'+totalBadgesEarned()+'<span style="font-size:14px;color:var(--ink-faint)">/'+(CURRICULUM.stages.length*6)+'</span></span><span class="sub">across all stages</span></div>';
 
   var spark = "";
@@ -323,22 +329,30 @@ function renderWeeklyLog(){
     + '</main>';
 }
 
+var SKILL_GROUP_DOT = {"Forehand":"var(--cat-technical)", "Backhand":"var(--cat-tactical)", "Net Game":"var(--cat-physical)", "Serve":"var(--cat-mental)", "Movement":"var(--accent2)"};
 function renderSkills(){
-  var cats = CAT_KEYS.map(function(cat){
-    var m = catMasteredCount(cat), total = CURRICULUM.blocks.length, pct = total ? Math.round((m/total)*100) : 0;
-    var items = CURRICULUM.blocks.map(function(b){
-      var key = b.id+"-"+cat, val = state.skillStatus[key] || "not-started";
-      var text = b[cat==="technical"?"tech":cat==="tactical"?"tact":cat==="physical"?"phys":"ment"];
-      return '<div class="skill-item"><span class="s-text">'+escapeHtml(text)+'</span><span class="s-week">Wk '+(b.wk?b.wk[0]:"")+'–'+(b.wk?b.wk[1]:"")+'</span>'
-        + '<select class="status-select" data-action="statuschange" data-block="'+b.id+'" data-cat="'+cat+'">'
+  var items = currentSkillItems();
+  if (!items.length){
+    return '<main><div class="page-head"><div><h1>Skill Checklist</h1></div></div><div class="card">No skill checklist has been written yet for this level.</div></main>';
+  }
+  var groups = [];
+  items.forEach(function(s){ if (groups.indexOf(s.group_label) === -1) groups.push(s.group_label); });
+  var sections = groups.map(function(group){
+    var groupItems = items.filter(function(s){ return s.group_label === group; }).sort(function(a,b){ return a.sort_order - b.sort_order; });
+    var m = groupMasteredCount(items, group), total = groupItems.length, pct = total ? Math.round((m/total)*100) : 0;
+    var dot = SKILL_GROUP_DOT[group] || "var(--accent)";
+    var rows = groupItems.map(function(s){
+      var val = state.skillStatus[s.id] || "not-started";
+      return '<div class="skill-item"><span class="s-text"><b>'+escapeHtml(s.title)+'</b><br/><span style="color:var(--ink-soft); font-size:12.5px">'+escapeHtml(s.description)+'</span></span>'
+        + '<select class="status-select" data-action="statuschange" data-skill="'+s.id+'">'
         + '<option value="not-started" '+(val==="not-started"?"selected":"")+'>Not started</option>'
         + '<option value="in-progress" '+(val==="in-progress"?"selected":"")+'>In progress</option>'
         + '<option value="mastered" '+(val==="mastered"?"selected":"")+'>Mastered</option></select></div>';
     }).join("");
-    return '<div class="skill-cat"><div class="cat-head"><span class="cat-dot" style="background:var(--cat-'+cat+')"></span><h3>'+CAT_LABELS[cat]+'</h3><span class="cat-frac">'+m+'/'+total+' mastered</span></div>'
-      + '<div class="cat-bar"><div class="cat-bar-fill" style="width:'+pct+'%;background:var(--cat-'+cat+')"></div></div><div class="card">'+items+'</div></div>';
+    return '<div class="skill-cat"><div class="cat-head"><span class="cat-dot" style="background:'+dot+'"></span><h3>'+escapeHtml(group)+'</h3><span class="cat-frac">'+m+'/'+total+' mastered</span></div>'
+      + '<div class="cat-bar"><div class="cat-bar-fill" style="width:'+pct+'%;background:'+dot+'"></div></div><div class="card">'+rows+'</div></div>';
   }).join("");
-  return '<main><div class="page-head"><div><h1>Skill Checklist</h1><div class="meta">One skill focus per training block &middot; '+CURRICULUM.blocks.length+' blocks &times; 4 categories</div></div></div>'+cats+'</main>';
+  return '<main><div class="page-head"><div><h1>Skill Checklist</h1><div class="meta">'+items.length+' skills across '+groups.length+' groups &middot; tracked continuously, not tied to a single week</div></div></div>'+sections+'</main>';
 }
 
 function renderBadges(){
@@ -581,8 +595,8 @@ function onChange(e){
     state.weeklyLog[wk].note=el.value; schedulePersist();
   }
   else if (action==="statuschange"){
-    var bId=el.getAttribute("data-block"), cat=el.getAttribute("data-cat");
-    state.skillStatus[bId+"-"+cat]=el.value; rerender(); schedulePersist();
+    var skillId=el.getAttribute("data-skill");
+    state.skillStatus[skillId]=el.value; rerender(); schedulePersist();
   }
   else if (action==="benchfield"){
     var b=el.getAttribute("data-bench"), field=el.getAttribute("data-field"), val=el.value===""?null:(+el.value);
@@ -640,6 +654,10 @@ function boot(client, session){
   }).then(function(res){
     if (res.error) throw res.error;
     thresholds = normalizeThresholdRows(res.data);
+    return player.pathway === "ntrp" ? authClient.from("skill_items").select("*").eq("pathway", "ntrp") : Promise.resolve({data: [], error: null});
+  }).then(function(res){
+    if (res.error) throw res.error;
+    skillItems = normalizeBlockRows(res.data);
 
     CURRICULUM = buildCurriculum({ pathway: player.pathway, levelHistory: levelHistory, quarters: plan.quarters, startDate: plan.start_date, sessionsPerWeek: player.sessions_per_week, drillBlocks: drillBlocks });
     QUIZDATA = { groups: buildQuizGroups({ pathway: player.pathway, levelHistory: levelHistory, quarters: plan.quarters, startDate: plan.start_date, quizBanks: quizBanks }) };
