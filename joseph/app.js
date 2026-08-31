@@ -199,19 +199,26 @@ function renderBadges(){
   return '<main><div class="page-head"><div><h1>Skill Badges</h1><div class="meta">Tap a badge to mark it earned &middot; 6 badges per stage, 24 for the season</div></div></div>'+stages+'</main>';
 }
 
+var CHECKIN_TARGETS = {
+  1:{longestRally:"Target 3+",funMatches:"Games, not scored yet"},
+  2:{longestRally:"Target 5+",funMatches:"Target 2+"},
+  3:{longestRally:"Target 7+",funMatches:"Target 4+"},
+  4:{longestRally:"Target 10+ (NTRP 2.5)",funMatches:"Target 6+"}
+};
 function renderCheckins(){
   var cards = [1,2,3,4].map(function(c){
-    var s = stageById(c), data = state.checkins[String(c)], wk = CHECKIN_WEEKS[c], w = weekById(wk);
-    var field = function(labelText, key){
+    var s = stageById(c), data = state.checkins[String(c)], wk = CHECKIN_WEEKS[c], w = weekById(wk), targets = CHECKIN_TARGETS[c];
+    var field = function(labelText, key, placeholder){
       var v = data[key];
-      return '<div class="field-row"><label>'+labelText+'</label><input type="number" inputmode="numeric" data-action="checkinfield" data-checkin="'+c+'" data-field="'+key+'" value="'+(v===null||v===undefined?"":v)+'" placeholder="–" /></div>';
+      return '<div class="field-row"><label>'+labelText+'</label><input type="number" inputmode="numeric" data-action="checkinfield" data-checkin="'+c+'" data-field="'+key+'" value="'+(v===null||v===undefined?"":v)+'" placeholder="'+(placeholder||"–")+'" /></div>';
     };
     return '<div class="card bench-card"><h3>Check-In '+c+' &middot; Week '+wk+'</h3><div class="bdate">'+w.start+' &middot; end of Stage '+c+' ('+s.name+')</div>'
-      + field("Longest rally (balls in a row)","longestRally") + field("Fun matches played","funMatches")
+      + '<p style="color:var(--ink-soft); font-size:13px; margin:0 0 12px">NTRP 2.5 track — the season builds toward a 2.5-level rally streak by Check-In 4.</p>'
+      + field("Longest rally (balls in a row)","longestRally",targets.longestRally) + field("Fun matches played","funMatches",targets.funMatches)
       + '<div class="field-row"><label>Badges earned so far</label><input value="'+badgesEarnedCount(c)+' / 6" disabled style="text-align:right;color:var(--ink-faint)"/></div>'
       + '<textarea class="bench-notes" data-action="checkinnotes" data-checkin="'+c+'" placeholder="How did this stage go?">'+escapeHtml(data.coachNote||"")+'</textarea></div>';
   }).join("");
-  return '<main><div class="page-head"><div><h1>Check-Ins</h1><div class="meta">Four easy check-ins across the season — weeks 13, 26, 39 &amp; 52</div></div></div><div class="grid bench-grid">'+cards+'</div></main>';
+  return '<main><div class="page-head"><div><h1>Check-Ins</h1><div class="meta">Four easy check-ins across the season — weeks 13, 26, 39 &amp; 52 &middot; targets track toward NTRP 2.5</div></div></div><div class="grid bench-grid">'+cards+'</div></main>';
 }
 
 function renderQuiz(){

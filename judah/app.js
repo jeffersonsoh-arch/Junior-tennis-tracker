@@ -259,21 +259,28 @@ function renderSkills(){
   return '<main><div class="page-head"><div><h1>Skill Checklist</h1><div class="meta">One skill focus per training block &middot; 12 blocks &times; 4 categories</div></div></div>'+cats+'</main>';
 }
 
+var BENCH_TARGETS = {
+  1:{servePct:"Target 55%+",rallyBalls:"Target 8+",agilitySec:"Target ≤ 7.0"},
+  2:{servePct:"Target 60%+",rallyBalls:"Target 10+",agilitySec:"Target ≤ 6.7"},
+  3:{servePct:"Target 65%+",rallyBalls:"Target 12+",agilitySec:"Target ≤ 6.4"},
+  4:{servePct:"Target 70%+ (NTRP 3.5)",rallyBalls:"Target 14+",agilitySec:"Target ≤ 6.0"}
+};
 function renderBenchmarks(){
   var cards = [1,2,3,4].map(function(b){
-    var data = state.benchmarks[String(b)], wk = BENCH_WEEKS[b], w = weekById(wk);
-    var field = function(labelText, key){
+    var data = state.benchmarks[String(b)], wk = BENCH_WEEKS[b], w = weekById(wk), targets = BENCH_TARGETS[b];
+    var field = function(labelText, key, placeholder){
       var v = data[key];
-      return '<div class="field-row"><label>'+labelText+'</label><input type="number" inputmode="decimal" data-action="benchfield" data-bench="'+b+'" data-field="'+key+'" value="'+(v===null||v===undefined?"":v)+'" placeholder="–" /></div>';
+      return '<div class="field-row"><label>'+labelText+'</label><input type="number" inputmode="decimal" data-action="benchfield" data-bench="'+b+'" data-field="'+key+'" value="'+(v===null||v===undefined?"":v)+'" placeholder="'+(placeholder||"–")+'" /></div>';
     };
     return '<div class="card bench-card"><h3>Benchmark '+b+' &middot; Week '+wk+'</h3><div class="bdate">'+w.start+' &middot; '+w.block_title+'</div>'
-      + field("Serve consistency (%)","servePct") + field("Rally tolerance (balls)","rallyBalls") + field("Agility 5-10-5 (sec)","agilitySec")
+      + '<p style="color:var(--ink-soft); font-size:13px; margin:0 0 12px">NTRP 3.5 track — placeholders show this checkpoint\'s target; the season aims for a 3.5 self-assessment by Benchmark 4.</p>'
+      + field("Serve consistency (%)","servePct",targets.servePct) + field("Rally tolerance (balls)","rallyBalls",targets.rallyBalls) + field("Agility 5-10-5 (sec)","agilitySec",targets.agilitySec)
       + field("Matches played","matches") + field("Matches won","wins") + field("Coach tactical rating (1–5)","coachRating")
       + '<div class="field-row"><label>NTRP self-assessment</label><select data-action="benchfield" data-bench="'+b+'" data-field="ntrp">'
       + ['','2.5','3.0','3.5','4.0'].map(function(v){ return '<option value="'+v+'" '+(data.ntrp===v?"selected":"")+'>'+(v||"–")+'</option>'; }).join("") + '</select></div>'
       + '<textarea class="bench-notes" data-action="benchnotes" data-bench="'+b+'" placeholder="Notes on this benchmark session">'+escapeHtml(data.notes||"")+'</textarea></div>';
   }).join("");
-  return '<main><div class="page-head"><div><h1>Benchmarks</h1><div class="meta">Testing weeks: 13, 26, 39 &amp; 52 &middot; enter results as they happen</div></div></div><div class="grid bench-grid">'+cards+'</div></main>';
+  return '<main><div class="page-head"><div><h1>Benchmarks</h1><div class="meta">Testing weeks: 13, 26, 39 &amp; 52 &middot; targets track toward NTRP 3.5 by season end</div></div></div><div class="grid bench-grid">'+cards+'</div></main>';
 }
 
 function renderQuiz(){
