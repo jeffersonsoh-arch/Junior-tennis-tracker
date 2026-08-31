@@ -48,7 +48,8 @@ function DEFAULT_STATE(){
   };
 }
 
-var state = loadLocalState(STORAGE_KEY, DEFAULT_STATE);
+var state = null;
+var authClient = null, authUserId = null, authUserEmail = "";
 var ui = {
   activeTab: "overview",
   selectedWeek: currentWeekNumber(),
@@ -141,6 +142,7 @@ function renderSidebar(){
     + '<nav class="tabs">' + tabsHtml + '</nav>'
     + '<div class="sidebar-foot">Season '+CURRICULUM.start_date+' &rarr; '+CURRICULUM.end_date+'<br/>NTRP 3.5 &middot; 4 sessions / week'
     + '<div class="data-tools" style="margin-top:10px"><button class="btn secondary" data-action="exportdata">Backup</button><button class="btn secondary" data-action="importdata">Restore</button></div>'
+    + (authUserEmail ? '<div style="margin-top:10px; font-size:10.5px; color:var(--ink-faint)">Signed in as '+escapeHtml(authUserEmail)+'<br/><button class="btn link" style="padding:4px 0" data-action="signout">Sign out</button></div>' : "")
     + '</div>'
     + '</div>';
 }
@@ -323,7 +325,15 @@ function renderApp(){
 /* ---------------------------- Persistence ---------------------------- */
 var persistTimer=null;
 function showToast(msg){ var t=document.getElementById("toast"); if(!t) return; t.textContent=msg; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},1400); }
-function schedulePersist(){ if (persistTimer) clearTimeout(persistTimer); persistTimer=setTimeout(function(){ saveLocalState(STORAGE_KEY,state); showToast("Saved"); },500); }
+function schedulePersist(){
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer=setTimeout(function(){
+    if (!authClient || !authUserId){ saveLocalState(STORAGE_KEY,state); showToast("Saved"); return; }
+    saveRemoteState(authClient, authUserId, "judah", STORAGE_KEY, state)
+      .then(function(){ showToast("Saved"); })
+      .catch(function(e){ saveLocalState(STORAGE_KEY,state); showToast("Saved offline (sync failed)"); console.warn(e); });
+  },500);
+}
 
 /* ---------------------------- Event wiring ---------------------------- */
 function rerender(){ document.getElementById("app").innerHTML = renderApp(); }
@@ -353,10 +363,11 @@ function onClick(e){
   else if (action==="exportdata"){ downloadJson("judah-tennis-backup-"+todayISO()+".json", state); showToast("Backup downloaded"); }
   else if (action==="importdata"){
     uploadJson(function(parsed){
-      if (parsed && typeof parsed==="object" && parsed.weeklyLog){ state=parsed; saveLocalState(STORAGE_KEY,state); rerender(); showToast("Progress restored"); }
+      if (parsed && typeof parsed==="object" && parsed.weeklyLog){ state=parsed; schedulePersist(); rerender(); showToast("Progress restored"); }
       else alert("That file doesn't look like a Judah backup.");
     });
   }
+  else if (action==="signout"){ signOutAndReload(); }
 }
 
 function onChange(e){
@@ -380,9 +391,25 @@ function onChange(e){
   else if (action==="quizanswer"){ var qi=+el.getAttribute("data-q"); ui.quizAnswers[ui.quizQuarter][qi]=+el.value; }
 }
 
-function init(){
+function startApp(){
   document.getElementById("app").innerHTML = renderApp();
   document.getElementById("app").addEventListener("click", onClick);
   document.getElementById("app").addEventListener("change", onChange);
 }
+
+function boot(client, session){
+  authClient = client;
+  authUserId = session.user.id;
+  authUserEmail = session.user.email || "";
+  document.getElementById("app").innerHTML = '<div class="app-loading">Loading Judah’s progress…</div>';
+  loadRemoteState(client, authUserId, "judah", STORAGE_KEY, DEFAULT_STATE)
+    .then(function(loaded){ state = loaded; startApp(); })
+    .catch(function(e){
+      console.warn("Falling back to local progress:", e);
+      state = loadLocalState(STORAGE_KEY, DEFAULT_STATE);
+      startApp();
+    });
+}
+
+function init(){ requireAuth(boot); }
 if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", init); else init();

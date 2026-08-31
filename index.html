@@ -18,50 +18,69 @@
     <p>One place to run both boys' training plans — session logs, skill progress, and a strategy quiz, each scaled to where they actually are.</p>
   </div>
   <div class="player-cards" id="cards"></div>
-  <div class="home-foot">Progress is saved right in this browser (per player). Use the <strong>Backup</strong> button inside each dashboard to download a copy, and <strong>Restore</strong> to load it on another device.</div>
+  <div class="home-foot" id="homefoot">Progress syncs to your family account. Use the <strong>Backup</strong> button inside each dashboard for an extra local copy.</div>
 </div>
+<div id="authgate"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/config.js"></script>
+<script src="assets/supabaseClient.js"></script>
+<script src="assets/auth.js"></script>
 <script>
-function readStats(key, totalSessions, totalBadgesOrSkills, badgeLabel){
-  var raw = null;
-  try{ raw = localStorage.getItem(key); }catch(e){}
+function statsFromState(s){
   var doneSessions = 0, doneBadges = 0;
-  if (raw){
-    try{
-      var s = JSON.parse(raw);
-      var wl = s.weeklyLog || {};
-      Object.keys(wl).forEach(function(wk){
-        ["d1","d2","d3","d4"].forEach(function(d){ if (wl[wk][d]) doneSessions++; });
-      });
-      if (s.skillStatus){
-        Object.keys(s.skillStatus).forEach(function(k){ if (s.skillStatus[k]==="mastered") doneBadges++; });
-      }
-      if (s.badgeStatus){
-        Object.keys(s.badgeStatus).forEach(function(k){ if (s.badgeStatus[k]) doneBadges++; });
-      }
-    }catch(e){}
+  var wl = (s && s.weeklyLog) || {};
+  Object.keys(wl).forEach(function(wk){
+    ["d1","d2","d3","d4"].forEach(function(d){ if (wl[wk][d]) doneSessions++; });
+  });
+  if (s && s.skillStatus){
+    Object.keys(s.skillStatus).forEach(function(k){ if (s.skillStatus[k]==="mastered") doneBadges++; });
   }
-  return {doneSessions:doneSessions, totalSessions:totalSessions, doneBadges:doneBadges, totalBadgesOrSkills:totalBadgesOrSkills, badgeLabel:badgeLabel};
+  if (s && s.badgeStatus){
+    Object.keys(s.badgeStatus).forEach(function(k){ if (s.badgeStatus[k]) doneBadges++; });
+  }
+  return {doneSessions:doneSessions, doneBadges:doneBadges};
 }
 
-var judah = readStats("deuceboard_judah_v1", 208, 48, "Skills Mastered");
-var joseph = readStats("deuceboard_joseph_v1", 156, 24, "Badges Earned");
+function readLocalState(key){
+  try{ var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
 
-function cardHtml(player, name, meta, stats, href){
+function cardHtml(player, name, meta, stats, totalSessions, totalBadgesOrSkills, badgeLabel, href){
   return '<a class="player-card '+player+'" href="'+href+'">'
     + '<div class="pc-name">'+name+'</div>'
     + '<div class="pc-meta">'+meta+'</div>'
     + '<div class="pc-stats">'
-      + '<div class="pc-stat"><div class="v">'+stats.doneSessions+'<span style="color:var(--ink-faint);font-size:13px">/'+stats.totalSessions+'</span></div><div class="l">Sessions Logged</div></div>'
-      + '<div class="pc-stat"><div class="v">'+stats.doneBadges+'<span style="color:var(--ink-faint);font-size:13px">/'+stats.totalBadgesOrSkills+'</span></div><div class="l">'+stats.badgeLabel+'</div></div>'
+      + '<div class="pc-stat"><div class="v">'+stats.doneSessions+'<span style="color:var(--ink-faint);font-size:13px">/'+totalSessions+'</span></div><div class="l">Sessions Logged</div></div>'
+      + '<div class="pc-stat"><div class="v">'+stats.doneBadges+'<span style="color:var(--ink-faint);font-size:13px">/'+totalBadgesOrSkills+'</span></div><div class="l">'+badgeLabel+'</div></div>'
     + '</div>'
     + '<div class="pc-enter">Open dashboard &rarr;</div>'
     + '</a>';
 }
 
-document.getElementById("cards").innerHTML =
-  cardHtml("judah", "Judah", "Age 10 &middot; NTRP 3.5 &middot; 4x / week", judah, "judah/index.html") +
-  cardHtml("joseph", "Joseph", "Age 6 &middot; NTRP 2.5 &middot; 3x / week", joseph, "joseph/index.html");
+function renderCards(judahState, josephState){
+  var judah = statsFromState(judahState), joseph = statsFromState(josephState);
+  document.getElementById("cards").innerHTML =
+    cardHtml("judah", "Judah", "Age 10 &middot; NTRP 3.5 &middot; 4x / week", judah, 208, 48, "Skills Mastered", "judah/index.html") +
+    cardHtml("joseph", "Joseph", "Age 6 &middot; NTRP 2.5 &middot; 3x / week", joseph, 156, 24, "Badges Earned", "joseph/index.html");
+}
+
+function boot(client, session){
+  document.getElementById("homefoot").textContent = "Signed in as " + (session.user.email || "") + ".";
+  client.from("player_progress").select("player,data").eq("user_id", session.user.id)
+    .then(function(res){
+      if (res.error) throw res.error;
+      var byPlayer = {};
+      (res.data || []).forEach(function(row){ byPlayer[row.player] = row.data; });
+      renderCards(byPlayer.judah || readLocalState("deuceboard_judah_v1"), byPlayer.joseph || readLocalState("deuceboard_joseph_v1"));
+    })
+    .catch(function(e){
+      console.warn("Falling back to local progress:", e);
+      renderCards(readLocalState("deuceboard_judah_v1"), readLocalState("deuceboard_joseph_v1"));
+    });
+}
+
+requireAuth(boot);
 </script>
 </body>
 </html>

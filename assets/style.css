@@ -266,6 +266,18 @@ select.status-select{
 }
 .btn:hover{filter:brightness(1.06);}
 .btn.secondary{background:var(--surface-sunken); color:var(--ink);}
+.btn.link{background:transparent; color:var(--accent); padding:8px 4px; text-decoration:underline;}
+
+/* ---------- Auth gate ---------- */
+#authgate{position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; background:var(--surface); padding:20px;}
+.auth-wrap{width:100%; max-width:340px;}
+.auth-card{background:var(--surface-raised); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px 24px;}
+.auth-card h2{font-size:19px; margin-bottom:16px;}
+.auth-form{display:flex; flex-direction:column; gap:10px;}
+.auth-input{font:400 14px "Karla",sans-serif; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface-sunken); color:var(--ink); width:100%;}
+.auth-msg{font-size:12.5px; color:var(--ink-soft); background:var(--surface-sunken); border-radius:7px; padding:8px 10px; margin:0 0 14px;}
+.auth-error{font-size:12.5px; color:var(--critical); background:var(--critical-soft); border-radius:7px; padding:8px 10px; margin:0;}
+.app-loading{padding:60px 30px; color:var(--ink-soft); font-size:14px; text-align:center;}
 .q-item{padding:16px 0; border-top:1px solid var(--line);}
 .q-item:first-of-type{border-top:none;}
 .q-item .q-text{font-weight:700; font-size:14px; margin-bottom:10px;}
