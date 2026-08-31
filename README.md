@@ -2,8 +2,8 @@
 
 A junior tennis development tracker for two players, built as a static site (plain HTML/CSS/JS, no backend):
 
-- **[Judah](judah/index.html)** — age 10, NTRP 3.0, 4 sessions/week. Full 52-week periodized plan (quarters → mesocycle blocks → weekly sessions), a 48-item technical/tactical/physical/mental skill checklist, 4 benchmark testing weeks, and a 40-question tactical strategy quiz.
-- **[Joseph](joseph/index.html)** — age 6, NTRP 2.0, 3 sessions/week. A distinct, age-appropriate red-ball → orange-ball pathway across 4 stages, 24 skill badges, 4 simple check-ins, and a 12-question picture-simple strategy quiz.
+- **[Judah](judah/index.html)** — age 10, NTRP 3.5, 4 sessions/week. Full 52-week periodized plan (quarters → mesocycle blocks → weekly sessions), a 48-item technical/tactical/physical/mental skill checklist, 4 benchmark testing weeks, and a 40-question tactical strategy quiz.
+- **[Joseph](joseph/index.html)** — age 6, NTRP 2.5, 3 sessions/week. A distinct, age-appropriate red-ball → orange-ball pathway across 4 stages, 24 skill badges, 4 simple check-ins, and a 12-question picture-simple strategy quiz.
 
 Open `index.html` to pick a player.
 

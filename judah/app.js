@@ -1,5 +1,5 @@
 /* =========================================================================
-   Deuce Board — Judah (NTRP 3.0, age 10, 4x/week)
+   Deuce Board — Judah (NTRP 3.5, age 10, 4x/week)
    Static-site version: persistence via localStorage + JSON export/import.
    ========================================================================= */
 
@@ -139,7 +139,7 @@ function renderSidebar(){
     + '<a class="brand" href="../index.html">' + ICON.brand + '<div class="brand-text"><span class="name">Deuce Board</span><span class="sub">Junior Development Tracker</span></div></a>'
     + '<div class="player-box"><span class="p-label">Player</span><span class="p-name">Judah</span><a href="../index.html">&larr; Switch player</a></div>'
     + '<nav class="tabs">' + tabsHtml + '</nav>'
-    + '<div class="sidebar-foot">Season '+CURRICULUM.start_date+' &rarr; '+CURRICULUM.end_date+'<br/>NTRP 3.0 &middot; 4 sessions / week'
+    + '<div class="sidebar-foot">Season '+CURRICULUM.start_date+' &rarr; '+CURRICULUM.end_date+'<br/>NTRP 3.5 &middot; 4 sessions / week'
     + '<div class="data-tools" style="margin-top:10px"><button class="btn secondary" data-action="exportdata">Backup</button><button class="btn secondary" data-action="importdata">Restore</button></div>'
     + '</div>'
     + '</div>';

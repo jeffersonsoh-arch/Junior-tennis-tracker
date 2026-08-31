@@ -1,5 +1,5 @@
 /* =========================================================================
-   Deuce Board — Joseph (NTRP 2.0, age 6, 3x/week)
+   Deuce Board — Joseph (NTRP 2.5, age 6, 3x/week)
    Red-ball → orange-ball pathway: stages + badges instead of quarters/NTRP.
    ========================================================================= */
 
@@ -104,7 +104,7 @@ function renderSidebar(){
     + '<a class="brand" href="../index.html">'+ICON.brand+'<div class="brand-text"><span class="name">Deuce Board</span><span class="sub">Junior Development Tracker</span></div></a>'
     + '<div class="player-box"><span class="p-label">Player</span><span class="p-name">Joseph</span><a href="../index.html">&larr; Switch player</a></div>'
     + '<nav class="tabs">'+tabsHtml+'</nav>'
-    + '<div class="sidebar-foot">Season '+CURRICULUM.start_date+' &rarr; '+CURRICULUM.end_date+'<br/>NTRP 2.0 &middot; 3 sessions / week'
+    + '<div class="sidebar-foot">Season '+CURRICULUM.start_date+' &rarr; '+CURRICULUM.end_date+'<br/>NTRP 2.5 &middot; 3 sessions / week'
     + '<div class="data-tools" style="margin-top:10px"><button class="btn secondary" data-action="exportdata">Backup</button><button class="btn secondary" data-action="importdata">Restore</button></div>'
     + '</div></div>';
 }
