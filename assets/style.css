@@ -185,6 +185,13 @@ main{flex:1; min-width:0; padding:26px 30px 60px;}
 .day-body{flex:1;}
 .day-body .d-label{font-weight:700; font-size:12.5px; color:var(--ink-soft); margin-bottom:2px;}
 .day-body .d-text{font-size:13.5px;}
+.d-total{font:700 10.5px "IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); margin-bottom:6px;}
+.day-seg{display:grid; grid-template-columns:150px 1fr; gap:10px; padding:5px 0; border-top:1px dashed var(--line);}
+.day-seg:first-of-type{border-top:none;}
+.day-seg .seg-label{font-weight:700; font-size:12px; color:var(--accent);}
+.day-seg .seg-min{font:600 10.5px "IBM Plex Mono",monospace; color:var(--ink-faint); font-weight:400;}
+.day-seg .seg-text{font-size:13px; color:var(--ink-soft); line-height:1.5;}
+@media (max-width:560px){ .day-seg{grid-template-columns:1fr;} }
 textarea.notes{
   width:100%; min-height:64px; margin-top:14px; border:1px solid var(--line); border-radius:8px;
   background:var(--surface-sunken); color:var(--ink); font:400 13px "Karla",sans-serif; padding:10px; resize:vertical;

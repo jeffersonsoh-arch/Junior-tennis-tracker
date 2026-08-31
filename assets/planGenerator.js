@@ -54,13 +54,59 @@ function splitWeeks(weeksInQuarter, n){
   return out;
 }
 
-function ntrpDayText(category, block){
-  if (category === "technical") return "Technical: " + block.content.tech + " — fed-ball reps + shadow work";
-  if (category === "tactical") return "Tactical Patterns: " + block.content.tact + " — live-ball target drilling";
-  if (category === "situational") return "Situational Play: points started from block scenarios; physical focus: " + block.content.phys;
-  return "Competitive Match Play: sets/tiebreaks applying the week's focus; mental skill: " + block.content.ment;
+/* Each on-court day is a real, multi-block session plan — warm-up through
+   cool-down — not a single one-line focus. This matches how academy/high-
+   performance junior sessions are actually structured (dynamic warm-up,
+   ball control, technical reps, live-ball patterns, point play,
+   competitive play, conditioning, cool-down — USTA Net Generation /
+   typical academy practice-plan templates). Rather than repeat all of
+   that identically every day, four profiles rotate which block is the
+   "main course" — a realistic week mixes a technical day, a pattern day,
+   a situational/point-play day, and a competitive day, each still
+   warming up and cooling down like every real session does. Each segment
+   is {label, minutes, text}; the UI renders these as a mini practice
+   card instead of one flat sentence. */
+var NTRP_DAY_PROFILES = [
+  function(block){ // main course: technical repetition
+    return [
+      {label:"Warm-Up", minutes:10, text:"Dynamic movement — jog/skip, lateral shuffle, high knees, carioca — then shadow swings on both wings to prime today's stroke."},
+      {label:"Technical", minutes:30, text: block.content.tech + " — build from shadow swings to a fed-ball feed, high rep count, coach correction between sets."},
+      {label:"Live-Ball Application", minutes:15, text: block.content.tact + " — light cooperative rally applying the stroke just drilled, not yet at full pattern speed."},
+      {label:"Conditioning", minutes:10, text: block.content.phys},
+      {label:"Cool-Down", minutes:5, text: block.content.ment + " — review one takeaway before leaving the court."}
+    ];
+  },
+  function(block){ // main course: tactical / live-ball patterns
+    return [
+      {label:"Warm-Up", minutes:10, text:"Dynamic movement plus short-court mini-tennis and reflex volleys to sharpen touch before full-court work."},
+      {label:"Technical Review", minutes:10, text: block.content.tech + " — quick reactivation reps, not the day's focus."},
+      {label:"Live-Ball Tactical Patterns", minutes:30, text: block.content.tact + " — full-speed pattern drilling with defined targets and a scoring system to keep reps honest."},
+      {label:"Point Play", minutes:15, text:"Points started mid-pattern from today's tactical setup, server/feeder alternating every few points."},
+      {label:"Cool-Down", minutes:5, text: block.content.ment + " — review what worked in the pattern work."}
+    ];
+  },
+  function(block){ // main course: situational point construction
+    return [
+      {label:"Warm-Up", minutes:10, text:"Dynamic movement plus full-court cooperative rallying to raise intensity before live points."},
+      {label:"Live-Ball Reps", minutes:15, text: block.content.tact + " — brief reactivation before points start."},
+      {label:"Situational Point Play", minutes:30, text:"Points started from block scenarios (short ball, deep ball, serve+1) applying " + block.content.tech + "; play to game or set targets, not just rally count."},
+      {label:"Conditioning", minutes:15, text: block.content.phys},
+      {label:"Cool-Down", minutes:5, text: block.content.ment}
+    ];
+  },
+  function(block){ // main course: competitive match play
+    return [
+      {label:"Warm-Up", minutes:10, text:"Full match-day warm-up sequence: groundstrokes, volleys, overheads, serves, returns — same routine as before a real match."},
+      {label:"Technical & Tactical Review", minutes:10, text: block.content.tech + "; " + block.content.tact + " — brief reps of both, not extended drilling."},
+      {label:"Competitive Match Play", minutes:35, text:"Sets or tiebreaks, real scoring, applying this week's focus under match conditions — no coaching mid-point."},
+      {label:"Mental Review & Cool-Down", minutes:10, text: block.content.ment + " — debrief one thing that worked and one adjustment for next time."}
+    ];
+  }
+];
+
+function ntrpDaySegments(dayIdx, block){
+  return NTRP_DAY_PROFILES[dayIdx % NTRP_DAY_PROFILES.length](block);
 }
-var NTRP_CATEGORIES = ["technical", "tactical", "situational", "competitive"];
 
 function ntrpBenchmarkDayText(slot, block){
   if (slot === 0) return "BENCHMARK TESTING — serve consistency, rally tolerance, footwork agility (see Testing Protocol)";
@@ -104,8 +150,9 @@ function buildNtrpCurriculum(opts){
     };
     var n = Math.max(1, opts.sessionsPerWeek);
     for (var d = 1; d <= n; d++){
-      week["day" + d] = block ? (isBenchmark ? ntrpBenchmarkDayText((d - 1) % NTRP_BENCHMARK_SLOTS, block) : ntrpDayText(NTRP_CATEGORIES[(d - 1) % NTRP_CATEGORIES.length], block))
-        : "No drill content available yet for NTRP " + level.toFixed(1) + " — add rows to drill_blocks for this level.";
+      week["day" + d] = !block ? "No drill content available yet for NTRP " + level.toFixed(1) + " — add rows to drill_blocks for this level."
+        : isBenchmark ? ntrpBenchmarkDayText((d - 1) % NTRP_BENCHMARK_SLOTS, block)
+        : ntrpDaySegments(d - 1, block);
     }
     weeks.push(week);
   }

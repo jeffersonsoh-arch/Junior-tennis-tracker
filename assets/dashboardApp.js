@@ -287,10 +287,22 @@ function renderOverview(){
     + '</main>';
 }
 
+/* A day's content is either a plain string (benchmark weeks, youth
+   pathway, or "no content yet") or an array of {label, minutes, text}
+   session segments (a normal NTRP week) — render whichever it is. */
+function renderDayContent(content){
+  if (typeof content === "string") return '<div class="d-text">'+escapeHtml(content)+'</div>';
+  var total = content.reduce(function(sum, s){ return sum + (s.minutes || 0); }, 0);
+  var segs = content.map(function(s){
+    return '<div class="day-seg"><span class="seg-label">'+escapeHtml(s.label)+(s.minutes ? ' <span class="seg-min">'+s.minutes+' min</span>' : '')+'</span>'
+      + '<span class="seg-text">'+escapeHtml(s.text)+'</span></div>';
+  }).join("");
+  return '<div class="d-text"><div class="d-total">~'+total+' min session</div>'+segs+'</div>';
+}
 function renderWeekDayRow(w, dnum){
-  var key="d"+dnum, done=dayDone(w.week,key), text=w["day"+dnum];
+  var key="d"+dnum, done=dayDone(w.week,key), content=w["day"+dnum];
   return '<div class="day-row"><button class="day-check '+(done?"done":"")+'" data-action="toggleday" data-week="'+w.week+'" data-day="'+key+'" aria-label="Toggle Day '+dnum+'">'+ICON.check+'</button>'
-    + '<div class="day-body"><div class="d-label">Day '+dnum+'</div><div class="d-text">'+escapeHtml(text)+'</div></div></div>';
+    + '<div class="day-body"><div class="d-label">Day '+dnum+'</div>'+renderDayContent(content)+'</div></div>';
 }
 
 function renderWeeklyLog(){
