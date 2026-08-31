@@ -205,8 +205,13 @@ as $$
 $$;
 
 alter table public.players enable row level security;
+-- `created_by = auth.uid()` is required in addition to membership: without
+-- it, INSERT ... RETURNING (used right after creating a player, before its
+-- player_members row exists yet) fails the RETURNING row's SELECT check
+-- and surfaces as a confusing "violates row-level security policy" error
+-- on the INSERT itself.
 create policy "members can view player" on public.players
-  for select using (public.user_is_member_of_player(id));
+  for select using (public.user_is_member_of_player(id) or created_by = auth.uid());
 create policy "members can update player" on public.players
   for update using (public.user_is_member_of_player(id)) with check (public.user_is_member_of_player(id));
 create policy "signed-in users can create a player" on public.players
