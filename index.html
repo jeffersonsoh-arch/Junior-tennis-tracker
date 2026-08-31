@@ -15,10 +15,12 @@
   <div class="home-head">
     <div class="kicker">Junior Development Tracker</div>
     <h1>Deuce Board</h1>
-    <p>One place to run both boys' training plans — session logs, skill progress, and a strategy quiz, each scaled to where they actually are.</p>
+    <p>Add every player you coach, at whatever level they're at — a plan is generated for each one, scaled to their NTRP level (or the youth red/orange pathway) and however many quarters you choose.</p>
   </div>
+  <div id="invites"></div>
   <div class="player-cards" id="cards"></div>
-  <div class="home-foot" id="homefoot">Progress syncs to your family account. Use the <strong>Backup</strong> button inside each dashboard for an extra local copy.</div>
+  <div id="addplayer-panel"></div>
+  <div class="home-foot" id="homefoot">Progress syncs to your account. Use the <strong>Backup</strong> button inside each dashboard for an extra local copy.</div>
 </div>
 <div id="authgate"></div>
 
@@ -27,57 +29,189 @@
 <script src="assets/supabaseClient.js"></script>
 <script src="assets/auth.js"></script>
 <script>
-function statsFromState(s){
-  var doneSessions = 0, doneBadges = 0;
-  var wl = (s && s.weeklyLog) || {};
-  Object.keys(wl).forEach(function(wk){
-    ["d1","d2","d3","d4"].forEach(function(d){ if (wl[wk][d]) doneSessions++; });
+var NTRP_LEVELS = [1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5,7.0];
+var YOUTH_STAGES = [
+  {key:"red_starter", label:"Red Starter"},
+  {key:"red_rally", label:"Red Rally"},
+  {key:"red_game_player", label:"Red Game Player"},
+  {key:"orange_ready", label:"Orange Ready"}
+];
+var authClient = null, authUser = null;
+var addPlayerOpen = false;
+
+function escapeHtml(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
   });
-  if (s && s.skillStatus){
-    Object.keys(s.skillStatus).forEach(function(k){ if (s.skillStatus[k]==="mastered") doneBadges++; });
-  }
-  if (s && s.badgeStatus){
-    Object.keys(s.badgeStatus).forEach(function(k){ if (s.badgeStatus[k]) doneBadges++; });
-  }
-  return {doneSessions:doneSessions, doneBadges:doneBadges};
 }
 
-function readLocalState(key){
-  try{ var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+function statsFromProgress(pathway, data){
+  var doneSessions = 0, doneBadgesOrSkills = 0;
+  var wl = (data && data.weeklyLog) || {};
+  Object.keys(wl).forEach(function(wk){
+    Object.keys(wl[wk]).forEach(function(d){ if (d.charAt(0)==="d" && wl[wk][d]) doneSessions++; });
+  });
+  if (pathway === "ntrp" && data && data.skillStatus){
+    Object.keys(data.skillStatus).forEach(function(k){ if (data.skillStatus[k]==="mastered") doneBadgesOrSkills++; });
+  }
+  if (pathway === "youth" && data && data.badgeStatus){
+    Object.keys(data.badgeStatus).forEach(function(k){ if (data.badgeStatus[k]) doneBadgesOrSkills++; });
+  }
+  return {doneSessions:doneSessions, doneBadgesOrSkills:doneBadgesOrSkills};
 }
 
-function cardHtml(player, name, meta, stats, totalSessions, totalBadgesOrSkills, badgeLabel, href){
-  return '<a class="player-card '+player+'" href="'+href+'">'
-    + '<div class="pc-name">'+name+'</div>'
+function playerCardHtml(p, plan, stats){
+  var meta = (p.pathway==="ntrp" ? "NTRP "+Number(p.current_level).toFixed(1) : YOUTH_STAGES.filter(function(s){return s.key===p.current_level;}).map(function(s){return s.label;})[0])
+    + " &middot; " + p.sessions_per_week + "x / week &middot; " + plan.quarters + " quarter" + (plan.quarters===1?"":"s");
+  var totalSessions = plan.quarters * 13 * p.sessions_per_week;
+  return '<a class="player-card '+p.pathway+'" href="player/index.html?id='+p.id+'">'
+    + '<div class="pc-name">'+escapeHtml(p.name)+'</div>'
     + '<div class="pc-meta">'+meta+'</div>'
     + '<div class="pc-stats">'
       + '<div class="pc-stat"><div class="v">'+stats.doneSessions+'<span style="color:var(--ink-faint);font-size:13px">/'+totalSessions+'</span></div><div class="l">Sessions Logged</div></div>'
-      + '<div class="pc-stat"><div class="v">'+stats.doneBadges+'<span style="color:var(--ink-faint);font-size:13px">/'+totalBadgesOrSkills+'</span></div><div class="l">'+badgeLabel+'</div></div>'
+      + '<div class="pc-stat"><div class="v">'+stats.doneBadgesOrSkills+'</div><div class="l">'+(p.pathway==="ntrp"?"Skills Mastered":"Badges Earned")+'</div></div>'
     + '</div>'
     + '<div class="pc-enter">Open dashboard &rarr;</div>'
     + '</a>';
 }
 
-function renderCards(judahState, josephState){
-  var judah = statsFromState(judahState), joseph = statsFromState(josephState);
-  document.getElementById("cards").innerHTML =
-    cardHtml("judah", "Judah", "Age 10 &middot; NTRP 3.5 &middot; 4x / week", judah, 208, 48, "Skills Mastered", "judah/index.html") +
-    cardHtml("joseph", "Joseph", "Age 6 &middot; NTRP 2.5 &middot; 3x / week", joseph, 156, 24, "Badges Earned", "joseph/index.html");
+function renderInvites(invites){
+  var el = document.getElementById("invites");
+  if (!invites.length){ el.innerHTML = ""; return; }
+  el.innerHTML = invites.map(function(inv){
+    return '<div class="invite-banner"><b>You\'ve been invited to '+escapeHtml(inv.player_name_snapshot)+'</b>'
+      + '<button class="btn" data-action="acceptinvite" data-id="'+inv.id+'">Accept</button></div>';
+  }).join("");
+}
+
+function renderAddPlayerToggle(){
+  var el = document.getElementById("addplayer-panel");
+  if (!addPlayerOpen){
+    el.innerHTML = '<button class="add-player-card" style="width:100%; margin-top:20px" data-action="openaddplayer">+ Add a player</button>';
+    return;
+  }
+  var levelOptions = NTRP_LEVELS.map(function(l){ return '<option value="'+l+'">NTRP '+l.toFixed(1)+'</option>'; }).join("");
+  var stageOptions = YOUTH_STAGES.map(function(s){ return '<option value="'+s.key+'">'+s.label+'</option>'; }).join("");
+  el.innerHTML = '<div class="card" style="margin-top:20px; max-width:420px">'
+    + '<h3 style="margin-bottom:12px">Add a player</h3>'
+    + '<div class="field-row"><label>Name</label><input type="text" id="np-name" placeholder="First name" /></div>'
+    + '<div class="field-row"><label>Birth year</label><input type="number" id="np-birthyear" placeholder="'+ (new Date().getFullYear()-10) +'" /></div>'
+    + '<div class="field-row"><label>Pathway</label><select id="np-pathway"><option value="ntrp">NTRP (1.0–7.0)</option><option value="youth">Youth red/orange pathway</option></select></div>'
+    + '<div class="field-row" id="np-level-row"><label>Starting level</label><select id="np-level">'+levelOptions+'</select></div>'
+    + '<div class="field-row"><label>Sessions / week</label><input type="number" id="np-sessions" value="3" min="1" max="7" /></div>'
+    + '<div class="field-row"><label>Plan length (quarters)</label><select id="np-quarters"><option value="1">1 quarter (13 wks)</option><option value="2">2 quarters (26 wks)</option><option value="3">3 quarters (39 wks)</option><option value="4" selected>4 quarters (52 wks)</option></select></div>'
+    + '<div style="margin-top:10px"><button class="btn" data-action="createplayer">Create player</button> <button class="btn secondary" data-action="closeaddplayer">Cancel</button></div>'
+    + '<div id="np-error" class="auth-error" style="display:none; margin-top:10px"></div>'
+    + '</div>';
+  document.getElementById("np-pathway").addEventListener("change", function(){
+    document.getElementById("np-level").innerHTML = this.value === "ntrp" ? levelOptions : stageOptions;
+  });
+}
+
+function loadAndRenderPlayers(){
+  authClient.from("player_members").select("*, players(*)").eq("user_id", authUser.id).eq("status", "active")
+    .then(function(res){
+      if (res.error) throw res.error;
+      var players = res.data.map(function(m){ return m.players; }).filter(Boolean);
+      if (!players.length){ document.getElementById("cards").innerHTML = ""; renderAddPlayerToggle(); return; }
+      var ids = players.map(function(p){ return p.id; });
+      return authClient.from("plans").select("*, player_progress(data)").eq("status", "active").in("player_id", ids)
+        .then(function(planRes){
+          if (planRes.error) throw planRes.error;
+          var planByPlayer = {}; planRes.data.forEach(function(pl){ planByPlayer[pl.player_id] = pl; });
+          return authClient.from("player_levels").select("*").in("player_id", ids).order("effective_date")
+            .then(function(lvlRes){
+              if (lvlRes.error) throw lvlRes.error;
+              var latestByPlayer = {};
+              lvlRes.data.forEach(function(l){ latestByPlayer[l.player_id] = l; });
+              document.getElementById("cards").innerHTML = players.map(function(p){
+                var plan = planByPlayer[p.id];
+                if (!plan) return "";
+                var lvl = latestByPlayer[p.id];
+                p.current_level = lvl ? (lvl.ntrp_level != null ? Number(lvl.ntrp_level) : lvl.youth_stage) : "";
+                var data = (plan.player_progress && plan.player_progress[0] && plan.player_progress[0].data) || {};
+                return playerCardHtml(p, plan, statsFromProgress(p.pathway, data));
+              }).join("");
+              renderAddPlayerToggle();
+            });
+        });
+    })
+    .catch(function(e){
+      console.error("Failed to load players:", e);
+      document.getElementById("cards").innerHTML = '<div class="empty-note">Could not load your players: '+escapeHtml(e.message||String(e))+'</div>';
+      renderAddPlayerToggle();
+    });
+}
+
+function loadAndRenderInvites(){
+  authClient.from("player_members").select("*").is("user_id", null).eq("status", "invited")
+    .then(function(res){
+      if (res.error) throw res.error;
+      var mine = res.data.filter(function(r){ return r.invited_email.toLowerCase() === (authUser.email||"").toLowerCase(); });
+      renderInvites(mine);
+    })
+    .catch(function(e){ console.warn("Could not load invites:", e); });
+}
+
+function onClick(e){
+  var el = e.target.closest("[data-action]");
+  if (!el) return;
+  var action = el.getAttribute("data-action");
+  if (action === "openaddplayer"){ addPlayerOpen = true; renderAddPlayerToggle(); }
+  else if (action === "closeaddplayer"){ addPlayerOpen = false; renderAddPlayerToggle(); }
+  else if (action === "createplayer"){ createPlayer(); }
+  else if (action === "acceptinvite"){ acceptInvite(el.getAttribute("data-id")); }
+}
+
+function acceptInvite(id){
+  authClient.from("player_members").update({user_id: authUser.id, status: "active"}).eq("id", id)
+    .then(function(res){
+      if (res.error) throw res.error;
+      loadAndRenderInvites(); loadAndRenderPlayers();
+    })
+    .catch(function(e){ alert("Could not accept invite: " + e.message); });
+}
+
+function createPlayer(){
+  var name = document.getElementById("np-name").value.trim();
+  var birthYear = +document.getElementById("np-birthyear").value;
+  var pathway = document.getElementById("np-pathway").value;
+  var levelVal = document.getElementById("np-level").value;
+  var sessions = +document.getElementById("np-sessions").value || 3;
+  var quarters = +document.getElementById("np-quarters").value;
+  var errEl = document.getElementById("np-error");
+  errEl.style.display = "none";
+  if (!name || !birthYear){ errEl.textContent = "Name and birth year are required."; errEl.style.display = "block"; return; }
+
+  var newPlayer = null;
+  authClient.from("players").insert({ name: name, birth_year: birthYear, pathway: pathway, sessions_per_week: sessions, created_by: authUser.id }).select().single()
+    .then(function(res){
+      if (res.error) throw res.error;
+      newPlayer = res.data;
+      // Must complete before player_levels/plans: their RLS insert policies
+      // require an active player_members row to already exist for auth.uid().
+      return authClient.from("player_members").insert({ player_id: newPlayer.id, user_id: authUser.id, invited_email: authUser.email, player_name_snapshot: newPlayer.name, role: "owner", status: "active" });
+    })
+    .then(function(res){
+      if (res.error) throw res.error;
+      return Promise.all([
+        authClient.from("player_levels").insert({ player_id: newPlayer.id, ntrp_level: pathway==="ntrp" ? parseFloat(levelVal) : null, youth_stage: pathway==="youth" ? levelVal : null, effective_date: new Date().toISOString().slice(0,10), set_by: "manual", created_by: authUser.id }),
+        authClient.from("plans").insert({ player_id: newPlayer.id, quarters: quarters, start_date: new Date().toISOString().slice(0,10), status: "active" })
+      ]);
+    })
+    .then(function(results){
+      results.forEach(function(r){ if (r.error) throw r.error; });
+      window.location.href = "player/index.html?id=" + newPlayer.id;
+    })
+    .catch(function(e){ errEl.textContent = "Could not create player: " + e.message; errEl.style.display = "block"; });
 }
 
 function boot(client, session){
+  authClient = client; authUser = session.user;
   document.getElementById("homefoot").textContent = "Signed in as " + (session.user.email || "") + ".";
-  client.from("player_progress").select("player,data").eq("user_id", session.user.id)
-    .then(function(res){
-      if (res.error) throw res.error;
-      var byPlayer = {};
-      (res.data || []).forEach(function(row){ byPlayer[row.player] = row.data; });
-      renderCards(byPlayer.judah || readLocalState("deuceboard_judah_v1"), byPlayer.joseph || readLocalState("deuceboard_joseph_v1"));
-    })
-    .catch(function(e){
-      console.warn("Falling back to local progress:", e);
-      renderCards(readLocalState("deuceboard_judah_v1"), readLocalState("deuceboard_joseph_v1"));
-    });
+  document.body.addEventListener("click", onClick);
+  loadAndRenderInvites();
+  loadAndRenderPlayers();
 }
 
 requireAuth(boot);
