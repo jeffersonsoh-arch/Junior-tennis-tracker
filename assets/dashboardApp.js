@@ -641,9 +641,9 @@ function boot(client, session){
   loadingScreen("Loading…");
 
   Promise.all([
-    client.from("players").select("*").eq("id", PLAYER_ID).single(),
+    client.from("players").select("*").eq("id", PLAYER_ID).maybeSingle(),
     client.from("player_levels").select("*").eq("player_id", PLAYER_ID).order("effective_date"),
-    client.from("plans").select("*").eq("player_id", PLAYER_ID).eq("status", "active").single(),
+    client.from("plans").select("*").eq("player_id", PLAYER_ID).eq("status", "active").maybeSingle(),
     client.from("player_members").select("*").eq("player_id", PLAYER_ID)
   ]).then(function(results){
     var pRes=results[0], lRes=results[1], planRes=results[2], mRes=results[3];
@@ -651,6 +651,9 @@ function boot(client, session){
     if (lRes.error) throw lRes.error;
     if (planRes.error) throw planRes.error;
     if (mRes.error) throw mRes.error;
+    if (!pRes.data) throw new Error("This player doesn't exist, or you don't have access to it.");
+    if (!lRes.data.length) throw new Error("This player has no level set yet — it looks like it was created without completing setup. Delete it and re-add the player from My Players.");
+    if (!planRes.data) throw new Error("This player has no active plan yet — it looks like it was created without completing setup. Delete it and re-add the player from My Players.");
     player = pRes.data; levelHistory = normalizeLevelRows(lRes.data); plan = planRes.data; members = mRes.data;
     document.body.setAttribute("data-player", player.pathway);
 
