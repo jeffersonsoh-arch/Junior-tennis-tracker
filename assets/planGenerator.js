@@ -167,11 +167,53 @@ function buildNtrpCurriculum(opts){
   };
 }
 
-var YOUTH_CATEGORIES = ["skill", "rally", "play"];
-function youthDayText(category, block, cyc){
-  var label = category === "skill" ? "Skill Builder: " : category === "rally" ? "Rally Games: " : "Play Day: ";
-  return label + block.content[category][cyc % block.content[category].length];
+/* Same idea as the NTRP session profiles, scaled to real USTA Net
+   Generation Red Ball / Orange Ball session lengths (45-60 min, not
+   90+) and playful, age-appropriate segment names. USTA's own red/
+   orange curriculum is itself organized by stroke — forehand, backhand
+   (+ slice), serve, volley — so youth content gets that same structure
+   instead of the old generic "skill/rally/play" grouping. */
+var YOUTH_DAY_PROFILES = [
+  function(block){ // groundstrokes day
+    return [
+      {label:"Warm-Up Game", minutes:5, text:"Ready-position freeze game plus animal-walk footwork to the net and back — energetic, no ball pressure yet."},
+      {label:"Forehand Station", minutes:12, text: block.content.forehand},
+      {label:"Backhand Station", minutes:12, text: block.content.backhand},
+      {label:"Rally Game", minutes:10, text:"Cooperative rally applying today's forehand and backhand reps — count together and try to beat the team's best streak."},
+      {label:"Cool-Down", minutes:3, text:"High-fives and a quick 'what did we work on today?' recap."}
+    ];
+  },
+  function(block){ // net game day
+    return [
+      {label:"Warm-Up Game", minutes:5, text:"Balloon-keepy-uppy or a reflex-catch game to wake up the hands."},
+      {label:"Volley Station", minutes:15, text: block.content.volley},
+      {label:"Net-Point Game", minutes:12, text:"Live points started with a feed to the net position, applying today's volley work."},
+      {label:"Cool-Down", minutes:3, text:"Quick stretch and one 'what worked' share."}
+    ];
+  },
+  function(block){ // serve & footwork day
+    return [
+      {label:"Warm-Up Game", minutes:5, text:"Freeze-tag ready position plus a split-step reaction game."},
+      {label:"Serve Station", minutes:12, text: block.content.serve},
+      {label:"Footwork Station", minutes:10, text: block.content.footwork},
+      {label:"Serve-and-Play Game", minutes:10, text:"Serve into a target zone, then play the point out — first to 5 points."},
+      {label:"Cool-Down", minutes:3, text:"Quick stretch and a shout-out for today's best serve."}
+    ];
+  },
+  function(block){ // play day
+    return [
+      {label:"Warm-Up Game", minutes:5, text:"Quick full-body activation game to get moving before match play."},
+      {label:"Quick Skill Refresh", minutes:8, text: block.content.forehand + " / " + block.content.backhand + " — a few reps of each, not the day's focus."},
+      {label:"Match Play", minutes:20, text: block.content.game},
+      {label:"Cool-Down & Celebration", minutes:5, text:"Handshake routine, sticker chart check-in, and a shout-out for one good shot from today."}
+    ];
+  }
+];
+
+function youthDaySegments(dayIdx, block){
+  return YOUTH_DAY_PROFILES[dayIdx % YOUTH_DAY_PROFILES.length](block);
 }
+
 var YOUTH_CHECKPOINT_SLOTS = [
   "Badge Day: try out for any badge that's ready — no pressure, just a fun check-in.",
   "Coach plays quick mini-games to see how each skill is coming along.",
@@ -193,8 +235,8 @@ function buildYouthCurriculum(opts){
     var qLevel = resolveLevelForDate(opts.levelHistory, qStart);
     var qBlock = blocksForBandQuarter(opts.drillBlocks, "youth", null, qLevel.youth_stage, q)[0];
     stages.push(qBlock
-      ? { id: q, name: qBlock.content.name, blurb: qBlock.content.blurb, badges: qBlock.content.badges, skill: qBlock.content.skill, rally: qBlock.content.rally, play: qBlock.content.play }
-      : { id: q, name: "Quarter " + q, blurb: "", badges: [], skill: [], rally: [], play: [] });
+      ? { id: q, name: qBlock.content.name, blurb: qBlock.content.blurb, badges: qBlock.content.badges }
+      : { id: q, name: "Quarter " + q, blurb: "", badges: [] });
   }
   for (var wk = 1; wk <= totalWeeks; wk++){
     var weekStart = addDaysISO(opts.startDate, (wk - 1) * 7);
@@ -205,7 +247,6 @@ function buildYouthCurriculum(opts){
 
     var levelEntry = resolveLevelForDate(opts.levelHistory, weekStart);
     var block = blocksForBandQuarter(opts.drillBlocks, "youth", null, levelEntry.youth_stage, quarter)[0];
-    var cyc = (weekInQuarter - 1) % 6;
 
     var week = {
       week: wk, start: weekStart, end: weekEnd,
@@ -216,7 +257,7 @@ function buildYouthCurriculum(opts){
     for (var d = 1; d <= n; d++){
       week["day" + d] = !block ? "No drill content available yet for this stage — add rows to drill_blocks."
         : isCheckpoint ? YOUTH_CHECKPOINT_SLOTS[(d - 1) % YOUTH_CHECKPOINT_SLOTS.length]
-        : youthDayText(YOUTH_CATEGORIES[(d - 1) % YOUTH_CATEGORIES.length], block, cyc);
+        : youthDaySegments(d - 1, block);
     }
     weeks.push(week);
   }
