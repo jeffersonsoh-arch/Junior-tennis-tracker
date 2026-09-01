@@ -36,11 +36,19 @@ function resolveLevelForDate(levelHistory, dateISO){
   return active;
 }
 
+/* NTRP bands have distinct content per plan-quarter (progression through
+   a season at the same level), so those rows are matched on quarter too.
+   Youth stages don't work that way — there's exactly one content row per
+   stage, applicable for as long as the player is in that stage — so a
+   youth lookup must NOT filter by the plan's quarter number, or it only
+   ever matches a player who started at Red Starter in plan-quarter 1 and
+   progressed stage-by-stage in lockstep with the calendar; anyone who
+   starts (or levels into) a later stage directly finds nothing. */
 function blocksForBandQuarter(drillBlocks, pathway, level, youthStage, quarter){
   return drillBlocks
     .filter(function(b){
-      if (b.pathway !== pathway || b.quarter !== quarter) return false;
-      if (pathway === "ntrp") return level >= b.level_min && level <= b.level_max;
+      if (b.pathway !== pathway) return false;
+      if (pathway === "ntrp") return b.quarter === quarter && level >= b.level_min && level <= b.level_max;
       return b.youth_stage === youthStage;
     })
     .sort(function(a, b){ return a.block_order - b.block_order; });
