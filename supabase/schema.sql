@@ -10,6 +10,8 @@
 --
 -- Run once in Supabase Dashboard -> SQL Editor -> New query -> paste -> Run.
 
+drop table if exists public.ai_saved_items cascade;
+drop table if exists public.ai_conversations cascade;
 drop table if exists public.player_progress cascade;
 drop table if exists public.plans cascade;
 drop table if exists public.player_levels cascade;
@@ -120,6 +122,37 @@ drop trigger if exists player_progress_set_updated_at on public.player_progress;
 create trigger player_progress_set_updated_at
   before update on public.player_progress
   for each row execute function public.player_progress_set_updated_at();
+
+-- One AI Coach chat thread per player. Messages are appended client-side
+-- and upserted as a whole (same pattern as player_progress) rather than
+-- one row per message — chat volume per player is small and this keeps
+-- the RLS surface identical to everything else here.
+create table public.ai_conversations (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references public.players(id) on delete cascade unique,
+  messages jsonb not null default '[]'::jsonb,
+  created_by uuid not null references auth.users(id),
+  updated_at timestamptz not null default now()
+);
+drop trigger if exists ai_conversations_set_updated_at on public.ai_conversations;
+create trigger ai_conversations_set_updated_at
+  before update on public.ai_conversations
+  for each row execute function public.player_progress_set_updated_at();
+
+-- Drills/plans the AI Coach proposed and a coach chose to keep. `segments`
+-- uses the same {label, minutes, text} shape as a generated plan day, so
+-- the dashboard can render a saved item with the same renderer it already
+-- has for weekly-log day content.
+create table public.ai_saved_items (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references public.players(id) on delete cascade,
+  kind text not null check (kind in ('drill','plan')),
+  title text not null,
+  summary text,
+  segments jsonb not null default '[]'::jsonb,
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now()
+);
 
 -- ---------------------------------------------------------------------
 -- Content library (reference data — not user-owned, read-only from the
@@ -321,3 +354,19 @@ create policy "signed-in users can read quiz banks" on public.quiz_banks
 alter table public.skill_items enable row level security;
 create policy "signed-in users can read skill items" on public.skill_items
   for select using (auth.role() = 'authenticated');
+
+alter table public.ai_conversations enable row level security;
+create policy "members can view ai conversation" on public.ai_conversations
+  for select using (public.user_is_member_of_player(player_id));
+create policy "members can create ai conversation" on public.ai_conversations
+  for insert with check (public.user_is_member_of_player(player_id) and created_by = auth.uid());
+create policy "members can update ai conversation" on public.ai_conversations
+  for update using (public.user_is_member_of_player(player_id)) with check (public.user_is_member_of_player(player_id));
+
+alter table public.ai_saved_items enable row level security;
+create policy "members can view ai saved items" on public.ai_saved_items
+  for select using (public.user_is_member_of_player(player_id));
+create policy "members can create ai saved items" on public.ai_saved_items
+  for insert with check (public.user_is_member_of_player(player_id) and created_by = auth.uid());
+create policy "members can delete ai saved items" on public.ai_saved_items
+  for delete using (public.user_is_member_of_player(player_id));

@@ -65,7 +65,8 @@ var ui = { activeTab: "overview", selectedWeek: 1, quizGroup: null, quizAnswers:
 
 var TABS_BASE = [
   {id:"overview", label:"Overview", icon:"overview"},
-  {id:"log", label:"Weekly Log", icon:"log"}
+  {id:"log", label:"Weekly Log", icon:"log"},
+  {id:"aicoach", label:"AI Coach", icon:"aicoach"}
 ];
 
 function weekById(n){ return CURRICULUM.weeks[n - 1]; }
@@ -480,6 +481,7 @@ function renderSettings(){
 function renderApp(){
   var mainHtml;
   if (ui.activeTab==="log") mainHtml=renderWeeklyLog();
+  else if (ui.activeTab==="aicoach") mainHtml=renderAiCoach();
   else if (ui.activeTab==="skills") mainHtml=renderSkills();
   else if (ui.activeTab==="badges") mainHtml=renderBadges();
   else if (ui.activeTab==="benchmarks") mainHtml=renderBenchmarks();
@@ -559,6 +561,17 @@ function onClick(e){
     });
   }
   else if (action==="signout"){ signOutAndReload(); }
+  else if (action==="aisend"){
+    var aiTa = document.getElementById("ai-chat-input");
+    var aiText = aiTa ? aiTa.value.trim() : "";
+    if (!aiText || aiState.sending) return;
+    sendAiMessage(aiText);
+  }
+  else if (action==="aisaveproposal"){ saveAiProposal(); }
+  else if (action==="aidiscardproposal"){ aiState.draftStructured = null; rerender(); }
+  else if (action==="aideleteitem"){
+    if (confirm("Delete this saved item?")) deleteAiSavedItem(el.getAttribute("data-id"));
+  }
   else if (action==="changelevel"){
     var sel = document.getElementById("newlevel-select").value;
     if (player.pathway==="ntrp") applyLevelChange(parseFloat(sel), null, "manual");
@@ -680,9 +693,12 @@ function boot(client, session){
     BENCH_WEEKS = {}; for (var q = 1; q <= plan.quarters; q++) BENCH_WEEKS[q] = q * WEEKS_PER_QUARTER;
     ui.selectedWeek = currentWeekNumberSafe();
 
-    return loadRemoteState(authClient, plan.id, plan.id, DEFAULT_STATE);
-  }).then(function(loaded){
-    state = loaded; startApp();
+    return Promise.all([
+      loadRemoteState(authClient, plan.id, plan.id, DEFAULT_STATE),
+      loadAiCoach(authClient, player.id)
+    ]);
+  }).then(function(results){
+    state = results[0]; startApp();
   }).catch(function(e){
     console.error("Failed to load player dashboard:", e);
     document.getElementById("app").innerHTML = '<div class="app-loading">Could not load this player: '+escapeHtml(e.message||String(e))+'</div>';

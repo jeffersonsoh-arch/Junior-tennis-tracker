@@ -275,6 +275,21 @@ select.status-select{
 .btn.secondary{background:var(--surface-sunken); color:var(--ink);}
 .btn.link{background:transparent; color:var(--accent); padding:8px 4px; text-decoration:underline;}
 
+/* ---------- AI Coach ---------- */
+.chat-log{display:flex; flex-direction:column; gap:10px; max-height:52vh; overflow-y:auto; padding-right:4px;}
+.chat-msg{max-width:80%; padding:9px 13px; border-radius:12px; font-size:13.5px; line-height:1.5; white-space:pre-wrap;}
+.chat-msg.user{align-self:flex-end; background:var(--accent); color:var(--accent-ink); border-bottom-right-radius:3px;}
+.chat-msg.assistant{align-self:flex-start; background:var(--surface-sunken); color:var(--ink); border-bottom-left-radius:3px;}
+.chat-msg.pending{opacity:.6;}
+.chat-input-row{display:flex; gap:8px; margin-top:12px;}
+.chat-input-row textarea{
+  flex:1; min-height:44px; max-height:140px; border:1px solid var(--line); border-radius:8px;
+  background:var(--surface-sunken); color:var(--ink); font:400 13.5px "Karla",sans-serif; padding:10px; resize:vertical;
+}
+.ai-saved-card{margin-top:10px;}
+.ai-saved-card .head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.ai-saved-card .kind-pill{text-transform:capitalize;}
+
 /* ---------- Auth gate ---------- */
 #authgate{position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; background:var(--surface); padding:20px;}
 .auth-wrap{width:100%; max-width:340px;}
