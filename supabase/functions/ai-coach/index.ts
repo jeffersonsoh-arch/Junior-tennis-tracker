@@ -1,7 +1,7 @@
 // AI Coach — Supabase Edge Function.
 //
-// The browser never talks to Anthropic directly (that would mean shipping
-// an API key to every visitor); it calls this function instead, forwarding
+// The browser never talks to Groq directly (that would mean shipping an
+// API key to every visitor); it calls this function instead, forwarding
 // the signed-in user's own Supabase JWT. This function reuses that JWT to
 // build its Supabase client, so every read still goes through the same
 // Row Level Security policies as the rest of the app — there is no
@@ -9,8 +9,8 @@
 // they actually have access to.
 //
 // Deploy: supabase functions deploy ai-coach
-// Secret: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-// Optional: supabase secrets set AI_COACH_MODEL=claude-sonnet-5
+// Secret: supabase secrets set GROQ_API_KEY=gsk_...   (free at console.groq.com)
+// Optional: supabase secrets set GROQ_MODEL=llama-3.3-70b-versatile
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -63,7 +63,7 @@ Answer coaching questions conversationally and concisely. If — and only if —
 Use "kind":"plan" instead of "drill" for a full multi-segment session plan (same shape either way — the only difference is what you call it). Omit the JSON block entirely for ordinary conversation, questions, or advice that isn't a concrete saved drill/plan.`;
 }
 
-// Anthropic replies may put the JSON block last; look for a fenced ```json
+// The model's reply may put the JSON block last; look for a fenced ```json
 // block anywhere and, if it parses into the expected shape, split it out
 // from the human-readable reply shown in the chat.
 function extractStructured(text: string): { reply: string; structured: any | null } {
@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Expected { playerId, message, history }" }, 400);
   }
 
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return jsonResponse({ error: "AI Coach isn't configured yet (missing ANTHROPIC_API_KEY secret)." }, 500);
+  const groqKey = Deno.env.get("GROQ_API_KEY");
+  if (!groqKey) return jsonResponse({ error: "AI Coach isn't configured yet (missing GROQ_API_KEY secret)." }, 500);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -125,31 +125,37 @@ Deno.serve(async (req) => {
     content: String(m.content || "").slice(0, 4000),
   }));
 
-  const model = Deno.env.get("AI_COACH_MODEL") || "claude-sonnet-5";
-  const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+  // Groq's API is OpenAI-compatible: system prompt is just another message
+  // in the array (no separate top-level `system` field like Anthropic), and
+  // the reply comes back as choices[0].message.content instead of a content
+  // block list.
+  const model = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
+  const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
+      "authorization": "Bearer " + groqKey,
     },
     body: JSON.stringify({
       model,
       max_tokens: 1200,
-      system: systemPrompt(player, level),
-      messages: [...recentHistory, { role: "user", content: message }],
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: systemPrompt(player, level) },
+        ...recentHistory,
+        { role: "user", content: message },
+      ],
     }),
   });
 
-  if (!anthropicRes.ok) {
-    const errText = await anthropicRes.text();
-    console.error("Anthropic API error:", anthropicRes.status, errText);
+  if (!groqRes.ok) {
+    const errText = await groqRes.text();
+    console.error("Groq API error:", groqRes.status, errText);
     return jsonResponse({ error: "The AI Coach is unavailable right now. Please try again shortly." }, 502);
   }
 
-  const anthropicData = await anthropicRes.json();
-  const text = (anthropicData.content || [])
-    .filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
+  const groqData = await groqRes.json();
+  const text = (groqData.choices?.[0]?.message?.content || "").trim();
   if (!text) return jsonResponse({ error: "The AI Coach didn't return a response. Please try again." }, 502);
 
   const { reply, structured } = extractStructured(text);
