@@ -1,7 +1,7 @@
 /* =========================================================================
    Shared design tokens — Family Tennis Tracker
-   Two theme scopes: [data-player="judah"] (teal) and [data-player="joseph"]
-   (terracotta). Base tokens are shared so both pages read as one system.
+   Two theme scopes: [data-player="ntrp"] (teal) and [data-player="youth"]
+   (terracotta). Base tokens are shared so both pathways read as one system.
    ========================================================================= */
 
 :root{
@@ -42,24 +42,24 @@
   --accent:#4FA394; --accent-ink:#08120F; --accent-soft:rgba(79,163,148,.16); --accent2:#C7D34A;
 }
 
-/* Player theme scopes — override accent only */
-[data-player="judah"]{
+/* Pathway theme scopes — override accent only */
+[data-player="ntrp"]{
   --accent:#2C6E63; --accent-ink:#FFFFFF; --accent-soft:#E1EEEC; --accent2:#7C8A1E;
   --cat-technical:#3B6FA8; --cat-tactical:#B8563F; --cat-physical:#7A5EA8; --cat-mental:#966214;
 }
-[data-player="joseph"]{
+[data-player="youth"]{
   --accent:#C1592E; --accent-ink:#FFFFFF; --accent-soft:#F5E4DA; --accent2:#3E8A66;
   --cat-technical:#3B6FA8; --cat-tactical:#B8563F; --cat-physical:#7A5EA8; --cat-mental:#966214;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"])[data-player="judah"]{ --accent:#4FA394; --accent-ink:#08120F; --accent-soft:rgba(79,163,148,.16);
+  :root:not([data-theme="light"])[data-player="ntrp"]{ --accent:#4FA394; --accent-ink:#08120F; --accent-soft:rgba(79,163,148,.16);
     --cat-technical:#5A8BC4; --cat-tactical:#D9754F; --cat-physical:#9B70C9; --cat-mental:#BF8A2E; }
-  :root:not([data-theme="light"])[data-player="joseph"]{ --accent:#E08350; --accent-ink:#2A1204; --accent-soft:rgba(224,131,80,.16);
+  :root:not([data-theme="light"])[data-player="youth"]{ --accent:#E08350; --accent-ink:#2A1204; --accent-soft:rgba(224,131,80,.16);
     --cat-technical:#5A8BC4; --cat-tactical:#D9754F; --cat-physical:#9B70C9; --cat-mental:#BF8A2E; }
 }
-:root[data-theme="dark"][data-player="judah"]{ --accent:#4FA394; --accent-ink:#08120F; --accent-soft:rgba(79,163,148,.16);
+:root[data-theme="dark"][data-player="ntrp"]{ --accent:#4FA394; --accent-ink:#08120F; --accent-soft:rgba(79,163,148,.16);
   --cat-technical:#5A8BC4; --cat-tactical:#D9754F; --cat-physical:#9B70C9; --cat-mental:#BF8A2E; }
-:root[data-theme="dark"][data-player="joseph"]{ --accent:#E08350; --accent-ink:#2A1204; --accent-soft:rgba(224,131,80,.16);
+:root[data-theme="dark"][data-player="youth"]{ --accent:#E08350; --accent-ink:#2A1204; --accent-soft:rgba(224,131,80,.16);
   --cat-technical:#5A8BC4; --cat-tactical:#D9754F; --cat-physical:#9B70C9; --cat-mental:#BF8A2E; }
 
 *{box-sizing:border-box;}
@@ -185,6 +185,13 @@ main{flex:1; min-width:0; padding:26px 30px 60px;}
 .day-body{flex:1;}
 .day-body .d-label{font-weight:700; font-size:12.5px; color:var(--ink-soft); margin-bottom:2px;}
 .day-body .d-text{font-size:13.5px;}
+.d-total{font:700 10.5px "IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); margin-bottom:6px;}
+.day-seg{display:grid; grid-template-columns:150px 1fr; gap:10px; padding:5px 0; border-top:1px dashed var(--line);}
+.day-seg:first-of-type{border-top:none;}
+.day-seg .seg-label{font-weight:700; font-size:12px; color:var(--accent);}
+.day-seg .seg-min{font:600 10.5px "IBM Plex Mono",monospace; color:var(--ink-faint); font-weight:400;}
+.day-seg .seg-text{font-size:13px; color:var(--ink-soft); line-height:1.5;}
+@media (max-width:560px){ .day-seg{grid-template-columns:1fr;} }
 textarea.notes{
   width:100%; min-height:64px; margin-top:14px; border:1px solid var(--line); border-radius:8px;
   background:var(--surface-sunken); color:var(--ink); font:400 13px "Karla",sans-serif; padding:10px; resize:vertical;
@@ -266,6 +273,33 @@ select.status-select{
 }
 .btn:hover{filter:brightness(1.06);}
 .btn.secondary{background:var(--surface-sunken); color:var(--ink);}
+.btn.link{background:transparent; color:var(--accent); padding:8px 4px; text-decoration:underline;}
+
+/* ---------- AI Coach ---------- */
+.chat-log{display:flex; flex-direction:column; gap:10px; max-height:52vh; overflow-y:auto; padding-right:4px;}
+.chat-msg{max-width:80%; padding:9px 13px; border-radius:12px; font-size:13.5px; line-height:1.5; white-space:pre-wrap;}
+.chat-msg.user{align-self:flex-end; background:var(--accent); color:var(--accent-ink); border-bottom-right-radius:3px;}
+.chat-msg.assistant{align-self:flex-start; background:var(--surface-sunken); color:var(--ink); border-bottom-left-radius:3px;}
+.chat-msg.pending{opacity:.6;}
+.chat-input-row{display:flex; gap:8px; margin-top:12px;}
+.chat-input-row textarea{
+  flex:1; min-height:44px; max-height:140px; border:1px solid var(--line); border-radius:8px;
+  background:var(--surface-sunken); color:var(--ink); font:400 13.5px "Karla",sans-serif; padding:10px; resize:vertical;
+}
+.ai-saved-card{margin-top:10px;}
+.ai-saved-card .head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.ai-saved-card .kind-pill{text-transform:capitalize;}
+
+/* ---------- Auth gate ---------- */
+#authgate{position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; background:var(--surface); padding:20px;}
+.auth-wrap{width:100%; max-width:340px;}
+.auth-card{background:var(--surface-raised); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px 24px;}
+.auth-card h2{font-size:19px; margin-bottom:16px;}
+.auth-form{display:flex; flex-direction:column; gap:10px;}
+.auth-input{font:400 14px "Karla",sans-serif; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface-sunken); color:var(--ink); width:100%;}
+.auth-msg{font-size:12.5px; color:var(--ink-soft); background:var(--surface-sunken); border-radius:7px; padding:8px 10px; margin:0 0 14px;}
+.auth-error{font-size:12.5px; color:var(--critical); background:var(--critical-soft); border-radius:7px; padding:8px 10px; margin:0;}
+.app-loading{padding:60px 30px; color:var(--ink-soft); font-size:14px; text-align:center;}
 .q-item{padding:16px 0; border-top:1px solid var(--line);}
 .q-item:first-of-type{border-top:none;}
 .q-item .q-text{font-weight:700; font-size:14px; margin-bottom:10px;}
@@ -301,17 +335,25 @@ select.status-select{
   transition:transform .15s, border-color .15s;
 }
 .player-card:hover{transform:translateY(-2px);}
-.player-card.judah{border-top:4px solid #2C6E63;}
-.player-card.joseph{border-top:4px solid #C1592E;}
+.player-card.ntrp{border-top:4px solid #2C6E63;}
+.player-card.youth{border-top:4px solid #C1592E;}
 .player-card .pc-name{font-family:"Oswald",sans-serif; font-size:24px; font-weight:700;}
 .player-card .pc-meta{color:var(--ink-soft); font-size:13px; margin-top:4px;}
 .player-card .pc-stats{display:flex; gap:18px; margin-top:18px;}
 .player-card .pc-stat .v{font-family:"IBM Plex Mono",monospace; font-size:20px; font-weight:700;}
 .player-card .pc-stat .l{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint);}
 .player-card .pc-enter{margin-top:20px; font-size:13px; font-weight:700; color:var(--accent);}
-.player-card.judah .pc-enter{color:#2C6E63;}
-.player-card.joseph .pc-enter{color:#C1592E;}
+.player-card.ntrp .pc-enter{color:#2C6E63;}
+.player-card.youth .pc-enter{color:#C1592E;}
 .home-foot{text-align:center; margin-top:40px; font-size:12px; color:var(--ink-faint);}
+.add-player-card{
+  border:2px dashed var(--line-strong); border-radius:var(--radius); background:transparent; box-shadow:none;
+  display:flex; align-items:center; justify-content:center; min-height:150px; cursor:pointer;
+  color:var(--ink-soft); font:700 14px "Karla",sans-serif;
+}
+.add-player-card:hover{border-color:var(--accent); color:var(--accent);}
+.invite-banner{background:var(--warning-soft); border:1px solid var(--warning); border-radius:var(--radius); padding:14px 18px; margin-bottom:20px; font-size:13.5px;}
+.invite-banner b{display:block; margin-bottom:6px;}
 
 @media (max-width:820px){
   .app{flex-direction:column;}
