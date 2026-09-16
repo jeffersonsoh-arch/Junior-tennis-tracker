@@ -14,12 +14,17 @@ function addDaysISO(iso, n){
   return d.toISOString().slice(0, 10);
 }
 
+/* Finds the earliest delimiter that's outside any (parenthetical) —
+   otherwise "Full service motion (bounce, toss, swing) into..." would
+   truncate to "Full service motion (bounce" at the first inner comma. */
 function clauseAt(text, delims){
-  var idx = -1;
-  delims.forEach(function(d){
-    var i = text.indexOf(d);
-    if (i !== -1 && (idx === -1 || i < idx)) idx = i;
-  });
+  var depth = 0, idx = -1;
+  for (var i = 0; i < text.length && idx === -1; i++){
+    var ch = text[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && delims.indexOf(ch) !== -1) idx = i;
+  }
   return idx === -1 ? text : text.slice(0, idx);
 }
 
@@ -37,21 +42,48 @@ function resolveLevelForDate(levelHistory, dateISO){
 }
 
 /* NTRP bands have distinct content per plan-quarter (progression through
-   a season at the same level), so those rows are matched on quarter too.
-   Youth stages don't work that way — there's exactly one content row per
-   stage, applicable for as long as the player is in that stage — so a
-   youth lookup must NOT filter by the plan's quarter number, or it only
-   ever matches a player who started at Red Starter in plan-quarter 1 and
-   progressed stage-by-stage in lockstep with the calendar; anyone who
-   starts (or levels into) a later stage directly finds nothing. */
-function blocksForBandQuarter(drillBlocks, pathway, level, youthStage, quarter){
+   a season at the same level), matched on the `quarter` column. Youth
+   rows repurpose that same column for something else entirely: it holds
+   the stage's fixed position (1-4 for red_starter..orange_ready), a
+   legacy stand-in for "which stage" from before stages had their own
+   column. So youth progression *within* a stage is matched on
+   `block_order` instead (1 = that stage's first quarter of content, 2 =
+   its second, etc.) via bestYouthBlock() below — see stageQuarterFor()
+   for how the current in-stage quarter number is derived. */
+function blocksForBandQuarter(drillBlocks, pathway, level, quarter){
   return drillBlocks
-    .filter(function(b){
-      if (b.pathway !== pathway) return false;
-      if (pathway === "ntrp") return b.quarter === quarter && level >= b.level_min && level <= b.level_max;
-      return b.youth_stage === youthStage;
-    })
+    .filter(function(b){ return b.pathway === pathway && b.quarter === quarter && level >= b.level_min && level <= b.level_max; })
     .sort(function(a, b){ return a.block_order - b.block_order; });
+}
+
+/* How many 13-week quarters into the CURRENT stage a given week falls —
+   counted from the date the player entered that stage (the level_levels
+   effective_date), not the plan's own start date, so a mid-plan level
+   change still starts that stage's progression back at quarter 1. */
+function stageQuarterFor(stageEffectiveDateISO, weekStartISO){
+  var start = new Date(stageEffectiveDateISO + "T00:00:00Z");
+  var week = new Date(weekStartISO + "T00:00:00Z");
+  var daysSince = Math.round((week - start) / 86400000);
+  return Math.max(1, Math.floor(daysSince / (WEEKS_PER_QUARTER * 7)) + 1);
+}
+
+/* Picks the best-matching youth block for a stage at a given stage-
+   relative quarter (matched on block_order — see the comment on
+   blocksForBandQuarter for why `quarter` isn't usable here): an exact
+   match if authored, otherwise the highest authored quarter at or below
+   it (so a stage authored with only one block still works, and a player
+   who plateaus at a stage past its last authored quarter keeps that
+   stage's most advanced content instead of losing drill content
+   entirely). */
+function bestYouthBlock(drillBlocks, youthStage, desiredQuarter){
+  var rows = drillBlocks
+    .filter(function(b){ return b.pathway === "youth" && b.youth_stage === youthStage; })
+    .sort(function(a, b){ return a.block_order - b.block_order; });
+  if (!rows.length) return null;
+  var exact = rows.filter(function(b){ return b.block_order === desiredQuarter; })[0];
+  if (exact) return exact;
+  var atOrBelow = rows.filter(function(b){ return b.block_order <= desiredQuarter; });
+  return atOrBelow.length ? atOrBelow[atOrBelow.length - 1] : rows[0];
 }
 
 /* Splits `weeksInQuarter` weeks as evenly as possible across `n` blocks,
@@ -136,7 +168,7 @@ function buildNtrpCurriculum(opts){
 
     var levelEntry = resolveLevelForDate(opts.levelHistory, weekStart);
     var level = levelEntry.ntrp_level;
-    var quarterBlocks = blocksForBandQuarter(opts.drillBlocks, "ntrp", level, null, quarter);
+    var quarterBlocks = blocksForBandQuarter(opts.drillBlocks, "ntrp", level, quarter);
     var spans = splitWeeks(WEEKS_PER_QUARTER, quarterBlocks.length || 1);
     var cursor = 0, block = quarterBlocks[0], idxInBlock = weekInQuarter - 1;
     for (var i = 0; i < quarterBlocks.length; i++){
@@ -241,7 +273,10 @@ function buildYouthCurriculum(opts){
   for (var q = 1; q <= opts.quarters; q++){
     var qStart = addDaysISO(opts.startDate, (q - 1) * WEEKS_PER_QUARTER * 7);
     var qLevel = resolveLevelForDate(opts.levelHistory, qStart);
-    var qBlock = blocksForBandQuarter(opts.drillBlocks, "youth", null, qLevel.youth_stage, q)[0];
+    // name/blurb/badges represent the stage itself, not a particular
+    // quarter within it, and are duplicated across a stage's authored
+    // quarter rows — any match for the stage carries the same values.
+    var qBlock = bestYouthBlock(opts.drillBlocks, qLevel.youth_stage, 1);
     stages.push(qBlock
       ? { id: q, name: qBlock.content.name, blurb: qBlock.content.blurb, badges: qBlock.content.badges }
       : { id: q, name: "Quarter " + q, blurb: "", badges: [] });
@@ -254,7 +289,8 @@ function buildYouthCurriculum(opts){
     var isCheckpoint = weekInQuarter === WEEKS_PER_QUARTER;
 
     var levelEntry = resolveLevelForDate(opts.levelHistory, weekStart);
-    var block = blocksForBandQuarter(opts.drillBlocks, "youth", null, levelEntry.youth_stage, quarter)[0];
+    var stageQuarter = stageQuarterFor(levelEntry.effective_date, weekStart);
+    var block = bestYouthBlock(opts.drillBlocks, levelEntry.youth_stage, stageQuarter);
 
     var week = {
       week: wk, start: weekStart, end: weekEnd,
