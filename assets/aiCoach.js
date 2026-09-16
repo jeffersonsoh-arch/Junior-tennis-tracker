@@ -47,7 +47,19 @@ function sendAiMessage(text){
 
   authClient.functions.invoke("ai-coach", { body: { playerId: player.id, message: text, history: history } })
     .then(function(res){
-      if (res.error) throw res.error;
+      /* On a non-2xx response, supabase-js's res.error is a generic
+         FunctionsHttpError ("Edge Function returned a non-2xx status
+         code") — the friendly {error: "..."} body we actually send back
+         is only reachable via error.context (the raw Response), so read
+         that before falling back to the generic message. */
+      if (res.error){
+        if (res.error.context && typeof res.error.context.json === "function"){
+          return res.error.context.json().then(function(body){
+            throw new Error((body && body.error) || res.error.message);
+          }, function(){ throw res.error; });
+        }
+        throw res.error;
+      }
       var data = res.data || {};
       if (data.error) throw new Error(data.error);
       aiState.messages.push({role: "assistant", content: data.reply || ""});
