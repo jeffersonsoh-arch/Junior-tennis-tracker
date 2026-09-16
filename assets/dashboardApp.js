@@ -223,6 +223,62 @@ function renderSidebar(){
     + '</div></div>';
 }
 
+/* Condensed one-line-per-stroke summary of a youth block, used to show
+   "what's new"/"what's coming" without needing separately-authored diff
+   text — just the headline clause of each stroke field (reusing
+   planGenerator.js's clauseAt, already used the same way for NTRP
+   benchmark-week text). */
+function stageFocusLines(block){
+  if (!block) return [];
+  var c = block.content;
+  return [
+    "Forehand — " + clauseAt(c.forehand, [",", ";"]),
+    "Backhand — " + clauseAt(c.backhand, [",", ";"]),
+    "Serve — " + clauseAt(c.serve, [",", ";"]),
+    "Volley — " + clauseAt(c.volley, [",", ";"])
+  ];
+}
+
+function progCard(cls, label, name, lines){
+  var linesHtml = lines.map(function(l){ return '<div class="prog-line">'+escapeHtml(l)+'</div>'; }).join("");
+  return '<div class="card prog-card '+cls+'"><div class="prog-label">'+escapeHtml(label)+'</div><div class="prog-name">'+escapeHtml(name)+'</div>'
+    + '<div class="prog-lines">'+(linesHtml || '<div class="prog-line empty-note">—</div>')+'</div></div>';
+}
+
+/* Youth-only: a Previous / Current / Next stage strip, so a coach can see
+   at a glance what changed moving into this stage and what's coming next
+   — otherwise progression through the red/orange pathway is invisible
+   until you go dig through the Weekly Log week by week. */
+function renderStageProgression(){
+  if (player.pathway !== "youth") return "";
+  var current = levelHistory[levelHistory.length - 1];
+  var idx = YOUTH_STAGES.map(function(s){ return s.key; }).indexOf(current.youth_stage);
+  if (idx === -1) return "";
+
+  var prevStage = idx > 0 ? YOUTH_STAGES[idx - 1] : null;
+  var nextStage = idx < YOUTH_STAGES.length - 1 ? YOUTH_STAGES[idx + 1] : null;
+
+  var prevCard = prevStage
+    ? (function(){
+        var pb = bestYouthBlock(drillBlocks, prevStage.key, 1);
+        var badges = pb ? pb.content.badges.slice(0, 3).map(function(b){ return "Mastered: " + b; }) : [];
+        return progCard("prog-prev", "Where You Came From", prevStage.label, badges);
+      })()
+    : "";
+
+  var currentBlock = bestYouthBlock(drillBlocks, current.youth_stage, 1);
+  var currentCard = progCard("prog-current", "New This Stage", YOUTH_STAGES[idx].label, stageFocusLines(currentBlock));
+
+  var nextCard = nextStage
+    ? (function(){
+        var nb = bestYouthBlock(drillBlocks, nextStage.key, 1);
+        return progCard("prog-next", "Coming Up Next", nextStage.label, stageFocusLines(nb));
+      })()
+    : progCard("prog-next", "Coming Up Next", "NTRP Pathway", ["Graduate whenever ready — the same stroke-by-stroke structure continues into the full NTRP 1.0-7.0 scale."]);
+
+  return '<div class="section-title">Stage Progression</div><div class="grid prog-grid">'+prevCard+currentCard+nextCard+'</div>';
+}
+
 function levelSuggestionBanner(){
   var s = suggestedLevelUp();
   if (!s) return "";
@@ -275,6 +331,7 @@ function renderOverview(){
     + levelSuggestionBanner()
     + '<div class="page-head"><div><h1>Welcome back, '+escapeHtml(player.name)+'</h1><div class="meta">Week '+wk+' of '+TOTAL_WEEKS+' &middot; '+escapeHtml(levelLabel(resolveLevelForDate(levelHistory, w.start)))+'</div></div></div>'
     + '<div class="timeline">'+bands+marks.join("")+'</div>'
+    + renderStageProgression()
     + '<div class="section-title">This Season</div>'
     + '<div class="grid stat-row">'
       + '<div class="card stat-tile"><span class="label">Sessions Completed</span><span class="value">'+doneTotal+'<span style="font-size:14px;color:var(--ink-faint)">/'+(TOTAL_WEEKS*player.sessions_per_week)+'</span></span><span class="sub">'+pct+'% of the season</span></div>'
