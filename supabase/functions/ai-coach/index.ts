@@ -10,7 +10,7 @@
 //
 // Deploy: supabase functions deploy ai-coach
 // Secret: supabase secrets set GROQ_API_KEY=gsk_...   (free at console.groq.com)
-// Optional: supabase secrets set GROQ_MODEL=llama-3.3-70b-versatile
+// Optional: supabase secrets set GROQ_MODEL=openai/gpt-oss-120b
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -129,7 +129,9 @@ Deno.serve(async (req) => {
   // in the array (no separate top-level `system` field like Anthropic), and
   // the reply comes back as choices[0].message.content instead of a content
   // block list.
-  const model = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
+  // llama-3.3-70b-versatile was deprecated on Groq's free/developer tier
+  // (June 2026); openai/gpt-oss-120b is Groq's own recommended replacement.
+  const model = Deno.env.get("GROQ_MODEL") || "openai/gpt-oss-120b";
   const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {

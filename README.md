@@ -31,7 +31,7 @@ The site talks to Supabase directly from the browser — there's no server to de
    2. `supabase secrets set GROQ_API_KEY=gsk_...` (get a free key at [console.groq.com/keys](https://console.groq.com/keys) — no card required).
    3. `supabase functions deploy ai-coach`
    4. That's it — the AI Coach tab on every player's dashboard now works. Without this step the tab still shows (chat history and saved items still load), but sending a message fails: with the secret unset it replies with a friendly "AI Coach isn't configured yet" error; without the function deployed at all, it's a generic network/invoke error instead.
-   5. Optional: `supabase secrets set GROQ_MODEL=llama-3.3-70b-versatile` to use a different Groq-hosted model (this is already the default).
+   5. Optional: `supabase secrets set GROQ_MODEL=openai/gpt-oss-120b` to use a different Groq-hosted model (this is already the default — check [console.groq.com/docs/models](https://console.groq.com/docs/models) for the current list, since Groq periodically deprecates models on the free tier).
 
 ## How it fits together
 
