@@ -6,7 +6,35 @@
    resolve against whichever level was active on their own date (R4.3). */
 
 var WEEKS_PER_QUARTER = 13;
-var WEEK_LABELS = ["Introduce & Groove", "Develop Under Light Feed", "Combine Footwork + Stroke", "Compete: Apply in Games"];
+
+/* A quarter's block content (tech/tact/phys/ment, or forehand/backhand/etc.
+   for youth) is the same raw material for all 13 weeks — that's by design
+   (a real training block runs for a season, not a week), but without
+   anything else changing week to week, every week reads identically.
+   PHASES splits a quarter's 12 non-benchmark weeks into 4 three-week
+   phases that progress ONCE, start to finish (not a repeating cycle),
+   shifting which day-profile leans on for most days as the phase
+   advances — early phases lean technical/isolated, late phases lean
+   tactical/competitive — plus a visible coach's note explaining what
+   changed. Week 13 of every quarter stays a benchmark/checkpoint week,
+   untouched by any of this. */
+var PHASES_PER_QUARTER = 4;
+var WEEKS_PER_PHASE = Math.ceil((WEEKS_PER_QUARTER - 1) / PHASES_PER_QUARTER); // 3
+var NTRP_PHASES = [
+  { label: "Introduce & Groove", note: "Low pressure, high rep count on this quarter's stroke work — groove the motion before adding pace or opposition.", profileWeights: [0, 0, 1] },
+  { label: "Develop Under Light Feed", note: "Same technical focus, now against a lighter live feed — first look at applying it with a bit of unpredictability.", profileWeights: [0, 1, 1, 2] },
+  { label: "Combine Footwork + Stroke", note: "Footwork-to-contact sequencing under moderate pressure — this is where it starts looking game-like.", profileWeights: [1, 2, 2, 3] },
+  { label: "Compete: Apply in Games", note: "Live points and match-like pressure — the stroke has to hold up when it actually matters.", profileWeights: [2, 3, 3] }
+];
+var YOUTH_PHASES = [
+  { label: "Learn It", note: "Brand-new skill this quarter — low pressure, lots of reps, no scoring yet." },
+  { label: "Try It Together", note: "Same skill, now with a partner or a lighter feed — first taste of real back-and-forth." },
+  { label: "Use It in a Game", note: "The skill shows up inside a fun mini-game, not just standalone reps." },
+  { label: "Show What You Can Do", note: "Full application in real play — this is what earns the badge." }
+];
+function phaseIndexFor(idxInBlock){
+  return Math.min(PHASES_PER_QUARTER - 1, Math.floor(idxInBlock / WEEKS_PER_PHASE));
+}
 
 function addDaysISO(iso, n){
   var d = new Date(iso + "T00:00:00Z");
@@ -144,8 +172,10 @@ var NTRP_DAY_PROFILES = [
   }
 ];
 
-function ntrpDaySegments(dayIdx, block){
-  return NTRP_DAY_PROFILES[dayIdx % NTRP_DAY_PROFILES.length](block);
+function ntrpDaySegments(dayIdx, block, phaseIdx){
+  var weights = NTRP_PHASES[phaseIdx].profileWeights;
+  var profileIdx = weights[dayIdx % weights.length];
+  return NTRP_DAY_PROFILES[profileIdx](block);
 }
 
 function ntrpBenchmarkDayText(slot, block){
@@ -187,18 +217,20 @@ function buildNtrpCurriculum(opts){
       else blockWkRange[block.id][1] = wk;
     }
 
+    var phaseIdx = phaseIndexFor(idxInBlock);
     var week = {
       week: wk, start: weekStart, end: weekEnd,
       quarter: quarter, quarter_name: "Quarter " + quarter,
       block_id: block ? block.id : null, block_title: block ? block.title : "",
-      week_label: WEEK_LABELS[idxInBlock % WEEK_LABELS.length],
+      week_label: NTRP_PHASES[phaseIdx].label,
+      phase_note: isBenchmark ? "" : NTRP_PHASES[phaseIdx].note,
       is_benchmark: isBenchmark, is_holiday: false
     };
     var n = Math.max(1, opts.sessionsPerWeek);
     for (var d = 1; d <= n; d++){
       week["day" + d] = !block ? "No drill content available yet for NTRP " + level.toFixed(1) + " — add rows to drill_blocks for this level."
         : isBenchmark ? ntrpBenchmarkDayText((d - 1) % NTRP_BENCHMARK_SLOTS, block)
-        : ntrpDaySegments(d - 1, block);
+        : ntrpDaySegments(d - 1, block, phaseIdx);
     }
     weeks.push(week);
   }
@@ -303,9 +335,12 @@ function buildYouthCurriculum(opts){
     var stageQuarter = stageQuarterFor(levelEntry.effective_date, weekEnd);
     var block = bestYouthBlock(opts.drillBlocks, levelEntry.youth_stage, stageQuarter);
 
+    var phaseIdx = phaseIndexFor(weekInQuarter - 1);
     var week = {
       week: wk, start: weekStart, end: weekEnd,
       stage_id: quarter, stage_name: block ? block.content.name : stages[quarter - 1].name,
+      week_label: YOUTH_PHASES[phaseIdx].label,
+      phase_note: isCheckpoint ? "" : YOUTH_PHASES[phaseIdx].note,
       is_checkpoint: isCheckpoint, is_holiday: false
     };
     var n = Math.max(1, opts.sessionsPerWeek);

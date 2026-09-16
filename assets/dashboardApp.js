@@ -371,8 +371,9 @@ function renderWeeklyLog(){
   var isNtrp = player.pathway === "ntrp";
   var badges = '<span class="pill pill-accent">Q'+(w.quarter||w.stage_id)+'</span>'
     + '<span class="pill pill-muted">'+escapeHtml(w.block_title||w.stage_name||"")+'</span>'
-    + (isNtrp ? '<span class="pill pill-muted">'+escapeHtml(w.week_label||"")+'</span>' : "")
+    + (w.week_label ? '<span class="pill pill-muted">'+escapeHtml(w.week_label)+'</span>' : "")
     + ((isNtrp?w.is_benchmark:w.is_checkpoint) ? '<span class="pill pill-warn">Checkpoint Week</span>' : "");
+  var phaseNoteHtml = w.phase_note ? '<p class="phase-note">'+escapeHtml(w.phase_note)+'</p>' : "";
   var days = [];
   for (var d = 1; d <= player.sessions_per_week; d++) days.push(renderWeekDayRow(w, d));
   var heatCards = Array.from({length: plan.quarters}, function(_, i){ return i + 1; }).map(function(q){
@@ -392,7 +393,7 @@ function renderWeeklyLog(){
   return '<main>'
     + '<div class="page-head"><div><h1>Weekly Log</h1><div class="meta">Check off each session as it happens; notes save automatically.</div></div></div>'
     + '<div class="week-nav"><button class="icon-btn" data-action="prevweek">'+ICON.chevL+'</button><select data-action="selectweek">'+options+'</select><button class="icon-btn" data-action="nextweek">'+ICON.chevR+'</button></div>'
-    + '<div class="card week-card"><h3>Week '+w.week+' &middot; '+w.start+' – '+w.end+'</h3><div class="wk-badges">'+badges+'</div>'+days.join("")
+    + '<div class="card week-card"><h3>Week '+w.week+' &middot; '+w.start+' – '+w.end+'</h3><div class="wk-badges">'+badges+'</div>'+phaseNoteHtml+days.join("")
     + '<textarea class="notes" data-action="weeknotes" data-week="'+w.week+'" placeholder="Coach notes for this week (optional)">'+escapeHtml(wl.note||"")+'</textarea></div>'
     + '<div class="section-title">Season at a Glance</div>'
     + '<div class="grid heat-wrap">'+heatCards+'</div>'
