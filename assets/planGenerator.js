@@ -166,7 +166,13 @@ function buildNtrpCurriculum(opts){
     var weekInQuarter = wk - (quarter - 1) * WEEKS_PER_QUARTER; // 1..13
     var isBenchmark = weekInQuarter === WEEKS_PER_QUARTER;
 
-    var levelEntry = resolveLevelForDate(opts.levelHistory, weekStart);
+    /* Resolved against the week's END, not its start: a level change
+       made mid-week (the common case — a coach levels someone up on
+       whatever day they happen to be looking at the app) should show up
+       in that same week's content immediately, not wait until the
+       following Monday. Only a week that's fully in the past (its end
+       date before the change) keeps showing the old level. */
+    var levelEntry = resolveLevelForDate(opts.levelHistory, weekEnd);
     var level = levelEntry.ntrp_level;
     var quarterBlocks = blocksForBandQuarter(opts.drillBlocks, "ntrp", level, quarter);
     var spans = splitWeeks(WEEKS_PER_QUARTER, quarterBlocks.length || 1);
@@ -271,8 +277,11 @@ function buildYouthCurriculum(opts){
   var totalWeeks = opts.quarters * WEEKS_PER_QUARTER;
   var weeks = [], stages = [];
   for (var q = 1; q <= opts.quarters; q++){
-    var qStart = addDaysISO(opts.startDate, (q - 1) * WEEKS_PER_QUARTER * 7);
-    var qLevel = resolveLevelForDate(opts.levelHistory, qStart);
+    // Resolved against the quarter's end (not its start), so this
+    // summary stays in sync with the per-week resolution below when a
+    // level change lands mid-quarter.
+    var qEnd = addDaysISO(opts.startDate, q * WEEKS_PER_QUARTER * 7 - 1);
+    var qLevel = resolveLevelForDate(opts.levelHistory, qEnd);
     // name/blurb/badges represent the stage itself, not a particular
     // quarter within it, and are duplicated across a stage's authored
     // quarter rows — any match for the stage carries the same values.
@@ -288,8 +297,10 @@ function buildYouthCurriculum(opts){
     var weekInQuarter = wk - (quarter - 1) * WEEKS_PER_QUARTER;
     var isCheckpoint = weekInQuarter === WEEKS_PER_QUARTER;
 
-    var levelEntry = resolveLevelForDate(opts.levelHistory, weekStart);
-    var stageQuarter = stageQuarterFor(levelEntry.effective_date, weekStart);
+    // Resolved against the week's end, not its start — see the matching
+    // comment in buildNtrpCurriculum for why.
+    var levelEntry = resolveLevelForDate(opts.levelHistory, weekEnd);
+    var stageQuarter = stageQuarterFor(levelEntry.effective_date, weekEnd);
     var block = bestYouthBlock(opts.drillBlocks, levelEntry.youth_stage, stageQuarter);
 
     var week = {
